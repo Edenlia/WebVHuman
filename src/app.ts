@@ -25,6 +25,8 @@ export class App {
 
     public devicePixelHeight: number;
 
+    public depthTexture: GPUTexture;
+
     private models: Model[] = [];
 
     public CreateCanvas (rootElement: HTMLElement) {
@@ -96,9 +98,15 @@ export class App {
             ['float32x3', 'float32x3', 'float32x2'],
             fxCode,
             this.format,
-            false,
+            true,
             'triangle-list'
         );
+
+        this.depthTexture = this.device.createTexture({
+            size: { width: this.devicePixelWidth, height: this.devicePixelHeight, depthOrArrayLayers: 1 },
+            format: 'depth24plus', // depth format
+            usage: GPUTextureUsage.RENDER_ATTACHMENT
+        })
     }
 
     private _CreateGPUBuffer (typedArray: TypedArray, usage: GPUBufferUsageFlags) {
@@ -160,7 +168,14 @@ export class App {
 
                 clearValue: clearColor
 
-            }]
+            }],
+            depthStencilAttachment: {
+                view: this.depthTexture.createView(),
+
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            },
 
         }
         const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
