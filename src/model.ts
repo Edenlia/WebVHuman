@@ -1,4 +1,6 @@
 import {TypedArray} from "three";
+import {App} from "./app";
+import {createBindGroup} from "./utils";
 
 export enum ModelVBType {
     P = 0,
@@ -84,7 +86,7 @@ export class Model {
             typedArray.byteLength );
     }
 
-    public InitGPUBuffer (device: GPUDevice) {
+    public InitGPUBuffer (device: GPUDevice, app: App) {
 
         let vxArray = this.GetVertexInput();
 
@@ -94,39 +96,12 @@ export class Model {
 
         this.uniformBuffer = this._CreateGPUBuffer(device, this.matrixArray, GPUBufferUsage.UNIFORM);
 
-        this.uniformBindGroup = device.createBindGroup({
-
-            layout: device.createBindGroupLayout({
-
-                entries: [{
-
-                    binding: 0,
-
-                    visibility: GPUShaderStage.VERTEX,
-
-                    buffer: {
-
-                        type: 'uniform',
-
-                    }
-
-                }]
-
-            }),
-
-            entries: [{
-
-                binding: 0,
-
-                resource: {
-
-                    buffer: this.uniformBuffer
-
-                }
-
-            }]
-
-        });
+        this.uniformBindGroup = createBindGroup(
+            [{buffer: this.uniformBuffer}],
+            app.uniformGroupLayout,
+            "model",
+            device
+        );
     }
 
     public UpdateUniformBuffer (device: GPUDevice, mxArray: Float32Array) {
@@ -146,12 +121,12 @@ export class Model {
                 result = new Float32Array(this.vertexArray.length + this.normalArray.length);
 
                 for (let i = 0; i < this.vertexArray.length / 3; i++) {
-                    result[6 * i] = this.vertexArray[i];
-                    result[6 * i + 1] = this.vertexArray[i + 1];
-                    result[6 * i + 2] = this.vertexArray[i + 2];
-                    result[6 * i + 3] = this.vertexArray[i];
-                    result[6 * i + 4] = this.vertexArray[i + 1];
-                    result[6 * i + 5] = this.vertexArray[i + 2];
+                    result[6 * i] = this.vertexArray[3 * i];
+                    result[6 * i + 1] = this.vertexArray[3 * i + 1];
+                    result[6 * i + 2] = this.vertexArray[3 * i + 2];
+                    result[6 * i + 3] = this.normalArray[3 * i];
+                    result[6 * i + 4] = this.normalArray[3 * i + 1];
+                    result[6 * i + 5] = this.normalArray[3 * i + 2];
                 }
 
                 break;
@@ -159,14 +134,14 @@ export class Model {
                 result = new Float32Array(this.vertexArray.length + this.normalArray.length + this.uvArray.length);
 
                 for (let i = 0; i < this.vertexArray.length / 3; i++) {
-                    result[8 * i] = this.vertexArray[i];
-                    result[8 * i + 1] = this.vertexArray[i + 1];
-                    result[8 * i + 2] = this.vertexArray[i + 2];
-                    result[8 * i + 3] = this.normalArray[i];
-                    result[8 * i + 4] = this.normalArray[i + 1];
-                    result[8 * i + 5] = this.normalArray[i + 2];
-                    result[8 * i + 6] = this.uvArray[i];
-                    result[8 * i + 7] = this.uvArray[i + 1];
+                    result[8 * i] = this.vertexArray[3 * i];
+                    result[8 * i + 1] = this.vertexArray[3 * i + 1];
+                    result[8 * i + 2] = this.vertexArray[3 * i + 2];
+                    result[8 * i + 3] = this.normalArray[3 * i];
+                    result[8 * i + 4] = this.normalArray[3 * i + 1];
+                    result[8 * i + 5] = this.normalArray[3 * i + 2];
+                    result[8 * i + 6] = this.uvArray[2 * i];
+                    result[8 * i + 7] = this.uvArray[2 * i + 1];
                 }
 
                 break;

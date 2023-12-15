@@ -17,21 +17,14 @@ type ResourceTypeName =
   | 'externalTexture'
   | 'storageTexture';
 
-/**
- * @param {number[]} bindings - The binding value of each resource in the bind group.
- * @param {number[]} visibilities - The GPUShaderStage visibility of the resource at the corresponding index.
- * @param {ResourceTypeName[]} resourceTypes - The resourceType at the corresponding index.
- * @returns {BindGroupsObjectsAndLayout} An object containing an array of bindGroups and the bindGroupLayout they implement.
- */
-export const createBindGroupDescriptor = (
+export const createBindGroupLayout = (
   bindings: number[],
   visibilities: number[],
   resourceTypes: ResourceTypeName[],
   resourceLayouts: BindGroupBindingLayout[],
-  resources: GPUBindingResource[][],
   label: string,
   device: GPUDevice
-): BindGroupsObjectsAndLayout => {
+) : GPUBindGroupLayout => {
   // Create layout of each entry within a bindGroup
   const layoutEntries: GPUBindGroupLayoutEntry[] = [];
   for (let i = 0; i < bindings.length; i++) {
@@ -43,34 +36,35 @@ export const createBindGroupDescriptor = (
   }
 
   // Apply entry layouts to bindGroupLayout
-  const bindGroupLayout = device.createBindGroupLayout({
+  return device.createBindGroupLayout({
     label: `${label}.bindGroupLayout`,
     entries: layoutEntries,
   });
+}
+
+export const createBindGroup = (
+  resource: GPUBindingResource[],
+  bindGroupLayout: GPUBindGroupLayout,
+  label: string,
+  device: GPUDevice
+) : GPUBindGroup => {
 
   // Create bindGroups that conform to the layout
   const bindGroups: GPUBindGroup[] = [];
-  for (let i = 0; i < resources.length; i++) {
-    const groupEntries: GPUBindGroupEntry[] = [];
-    for (let j = 0; j < resources[0].length; j++) {
-      groupEntries.push({
-        binding: j,
-        resource: resources[i][j],
-      });
-    }
-    const newBindGroup = device.createBindGroup({
-      label: `${label}.bindGroup${i}`,
-      layout: bindGroupLayout,
-      entries: groupEntries,
+  const groupEntries: GPUBindGroupEntry[] = [];
+  for (let j = 0; j < resource.length; j++) {
+    groupEntries.push({
+      binding: j,
+      resource: resource[j],
     });
-    bindGroups.push(newBindGroup);
   }
 
-  return {
-    bindGroups,
-    bindGroupLayout,
-  };
-};
+  return device.createBindGroup({
+    label: `${label}.bindGroup`,
+    layout: bindGroupLayout,
+    entries: groupEntries,
+  });
+}
 
 export type ShaderKeyInterface<T extends string[]> = {
   [K in T[number]]: number;

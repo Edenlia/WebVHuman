@@ -1,7 +1,7 @@
 import {TypedArray} from "three";
 import {Model, ModelVBType} from "./model";
 import {
-    createBindGroupDescriptor,
+    createBindGroupLayout,
     create3DRenderPipeline,
 } from './utils';
 
@@ -79,136 +79,26 @@ export class App {
     }
 
     public InitPipeline (vxCode: string, fxCode: string) {
+        this.uniformGroupLayout = createBindGroupLayout(
+            [0],
+            [GPUShaderStage.VERTEX],
+            ['buffer'],
+            [{type: 'uniform' }],
+            'app',
+            this.device);
 
-        this.uniformGroupLayout = this.device.createBindGroupLayout({
-
-            entries: [
-
-                {
-
-                    binding: 0,
-
-                    visibility: GPUShaderStage.VERTEX,
-
-                    buffer: {
-
-                        type: 'uniform',
-
-                    }
-
-                }
-
-            ]
-
-        });
-
-        let layout: GPUPipelineLayout = this.device.createPipelineLayout({
-
-            bindGroupLayouts: [this.uniformGroupLayout]
-
-        });
-
-        let vxModule: GPUShaderModule = this.device.createShaderModule({
-
-            code: vxCode
-
-        });
-
-        let fxModule: GPUShaderModule = this.device.createShaderModule({
-
-            code: fxCode
-
-        });
-
-        this.renderPipeline = this.device.createRenderPipeline({
-
-            layout: layout,
-
-            vertex: {
-
-                buffers: [
-
-                    {
-
-                        // arrayStride: 4 * 8,
-                        arrayStride: 4 * 3,
-
-                        attributes: [
-
-                            // position
-
-                            {
-
-                                shaderLocation: 0,
-
-                                offset: 0,
-
-                                format: 'float32x3'
-
-                            },
-
-                            // // normal
-                            //
-                            // {
-                            //
-                            //     shaderLocation: 1,
-                            //
-                            //     offset: 4 * 3,
-                            //
-                            //     format: 'float32x3'
-                            //
-                            // },
-
-                            // // uv
-                            //
-                            // {
-                            //
-                            //     shaderLocation: 2,
-                            //
-                            //     offset: 4 * 6,
-                            //
-                            //     format: 'float32x2'
-                            //
-                            // }
-
-                        ]
-
-                    }
-
-                ],
-
-                module: vxModule,
-
-                entryPoint: 'main',
-
-
-            },
-
-            fragment: {
-
-                module: fxModule,
-
-                entryPoint: 'main',
-
-                targets: [
-
-                    {
-                        format: this.format,
-
-                    }
-
-                ]
-
-            },
-
-            primitive: {
-
-                topology: 'triangle-list',
-
-            }
-
-        });
-
+        this.renderPipeline = create3DRenderPipeline(
+            this.device,
+            'app',
+            [this.uniformGroupLayout],
+            vxCode,
+            // position
+            ['float32x3', 'float32x3', 'float32x2'],
+            fxCode,
+            this.format,
+            false,
+            'triangle-list'
+        );
     }
 
     private _CreateGPUBuffer (typedArray: TypedArray, usage: GPUBufferUsageFlags) {
@@ -239,9 +129,9 @@ export class App {
 
             let model = new Model();
 
-            model.InitModel(ModelVBType.P, mxArray, vxArray, idxArray, nmArray, uvArray);
+            model.InitModel(ModelVBType.PNU, mxArray, vxArray, idxArray, nmArray, uvArray);
 
-            model.InitGPUBuffer(this.device);
+            model.InitGPUBuffer(this.device, this);
 
             this.models.push(model);
     }
