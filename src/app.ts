@@ -2,7 +2,7 @@ import {TypedArray} from "three";
 import {Model, ModelVBType} from "./model";
 import {
     createBindGroupLayout,
-    create3DRenderPipeline,
+    create3DRenderPipeline, createTextureFromImage, createBindGroup,
 } from './utils';
 
 export class App {
@@ -19,6 +19,12 @@ export class App {
 
     public uniformGroupLayout: GPUBindGroupLayout;
 
+    public sampler: GPUSampler;
+
+    public surfaceGroupLayout: GPUBindGroupLayout;
+
+    public surfaceGroup: GPUBindGroup;
+
     public renderPipeline: GPURenderPipeline;
 
     public devicePixelWidth: number;
@@ -26,6 +32,8 @@ export class App {
     public devicePixelHeight: number;
 
     public depthTexture: GPUTexture;
+
+    public albedoTexture: GPUTexture;
 
     private models: Model[] = [];
 
@@ -80,7 +88,18 @@ export class App {
 
     }
 
+    public async LoadAlbedoTexture () {
+        const response = await fetch('./models/Emily/Emily_diffuse_map_01.png');
+        const imageBitmap = await createImageBitmap(await response.blob());
+        this.albedoTexture = createTextureFromImage(this.device, imageBitmap, true);
+    }
+
     public InitPipeline (vxCode: string, fxCode: string) {
+        this.sampler = this.device.createSampler({
+            magFilter: 'linear',
+            minFilter: 'linear',
+        });
+
         this.uniformGroupLayout = createBindGroupLayout(
             [0],
             [GPUShaderStage.VERTEX],
@@ -89,10 +108,31 @@ export class App {
             'app',
             this.device);
 
+        this.surfaceGroupLayout = createBindGroupLayout(
+            [0, 1],
+            [GPUShaderStage.FRAGMENT],
+            ['sampler', 'texture'],
+            [
+                {type: 'filtering'},
+                {sampleType: 'float'}
+            ],
+            'app',
+            this.device);
+
+        this.surfaceGroup = createBindGroup(
+            [
+                this.sampler,
+                this.albedoTexture.createView()
+            ],
+            this.surfaceGroupLayout,
+            'app',
+            this.device
+        )
+
         this.renderPipeline = create3DRenderPipeline(
             this.device,
             'app',
-            [this.uniformGroupLayout],
+            [this.uniformGroupLayout, this.surfaceGroupLayout],
             vxCode,
             // position
             ['float32x3', 'float32x3', 'float32x2'],
@@ -151,6 +191,8 @@ export class App {
         passEncoder.setIndexBuffer(indexBuffer, "uint32");
 
         passEncoder.setBindGroup(0, uniformBindGroup);
+
+        passEncoder.setBindGroup(1, this.surfaceGroup);
     }
 
     public Draw(clearColor: GPUColorDict) {

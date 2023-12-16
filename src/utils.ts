@@ -182,7 +182,8 @@ export const create3DRenderPipeline = (
 
 export const createTextureFromImage = (
   device: GPUDevice,
-  bitmap: ImageBitmap
+  bitmap: ImageBitmap,
+  flipY = false
 ) => {
   const texture: GPUTexture = device.createTexture({
     size: [bitmap.width, bitmap.height, 1],
@@ -193,7 +194,7 @@ export const createTextureFromImage = (
       GPUTextureUsage.RENDER_ATTACHMENT,
   });
   device.queue.copyExternalImageToTexture(
-    { source: bitmap },
+    { source: bitmap, flipY: flipY },
     { texture: texture },
     [bitmap.width, bitmap.height]
   );

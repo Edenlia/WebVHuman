@@ -59,6 +59,8 @@ let main = async () => {
 
     await app.InitWebGPU();
 
+    await app.LoadAlbedoTexture();
+
     app.InitPipeline( vxCode, fxCode );
 
     let lastTime = 0, rotationSpeed = 0.001;
