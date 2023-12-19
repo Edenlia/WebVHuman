@@ -35,6 +35,10 @@ export class App {
 
     public albedoTexture: GPUTexture;
 
+    public specularTexture: GPUTexture;
+
+    public displacementTexture: GPUTexture;
+
     private models: Model[] = [];
 
     public CreateCanvas (rootElement: HTMLElement) {
@@ -89,8 +93,18 @@ export class App {
     }
 
     public async LoadAlbedoTexture () {
-        const response = await fetch('./models/Emily/Emily_diffuse_map_01.png');
+        const response = await fetch('./models/Emily/Emily_diffuse_8k.png');
         const imageBitmap = await createImageBitmap(await response.blob());
+
+        // Test exr
+        // console.log("start load exr")
+        // // let texture = await loadImage( "./models/Emily/Emily_diffuse.png");
+        // let texture = await loadEXR( "./models/Emily/Emily_diffuse_map.exr");
+        // console.log("finish load exr")
+        // console.log(texture);
+        // const blob = new Blob([texture.image.data], {type: 'image/png'});
+        // const imageBitmap = await createImageBitmap(blob);
+
         this.albedoTexture = createTextureFromImage(this.device, imageBitmap, true);
     }
 
@@ -134,7 +148,7 @@ export class App {
             'app',
             [this.uniformGroupLayout, this.surfaceGroupLayout],
             vxCode,
-            // position
+            // position, normal, uv
             ['float32x3', 'float32x3', 'float32x2'],
             fxCode,
             this.format,

@@ -9,7 +9,6 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 
 import { PerspectiveCamera, Matrix4, Vector3 } from 'three';
 
-import {ModelVBType} from "./model";
 
 const modelVertices = [] as Float32Array[];
 const modelIndices = [] as Uint32Array[];
@@ -71,7 +70,8 @@ let main = async () => {
         // console.log("modelVertices ", i, ": ", modelVertices[i]);
         // console.log("modelIndices ", i, ": ", modelIndices[i]);
 
-        let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat( new Matrix4().multiplyMatrices( vMatrix, modelMMatrix ).toArray() ) );
+        // let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat( new Matrix4().multiplyMatrices( vMatrix, modelMMatrix ).toArray() ) );
+        let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(modelMMatrix.toArray()) );
 
         app.UploadModel( modelVertices[i], modelIndices[i], modelNormals[i], modelUvs[i], modelUniformBufferView );
     }
@@ -101,7 +101,7 @@ let main = async () => {
         camera.updateMatrixWorld( true);
         vMatrix = camera.matrixWorldInverse;
 
-        let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat( new Matrix4().multiplyMatrices( vMatrix, modelMMatrix ).toArray() ) );
+        let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(modelMMatrix.toArray()) );
 
         for (let i = 0; i < modelVertices.length; i++) {
             app.UpdateModelUniformBuffer(i,  modelUniformBufferView);

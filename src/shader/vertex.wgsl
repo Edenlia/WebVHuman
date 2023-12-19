@@ -1,6 +1,7 @@
 struct Uniforms {
     @size(64) uPMatrix: mat4x4<f32>,
-    @size(64) uMVMatrix: mat4x4<f32>
+    @size(64) uVMatrix: mat4x4<f32>,
+    @size(64) uMMatrix: mat4x4<f32>,
 };
 
 struct Attributes {
@@ -11,8 +12,9 @@ struct Attributes {
 
 struct Varyings {
     @builtin(position) pos: vec4<f32>,
-    @location(0) normal: vec3<f32>,
-    @location(1) uv: vec2<f32>
+    @location(0) worldPos: vec4<f32>,
+    @location(1) worldNormal: vec3<f32>,
+    @location(2) uv: vec2<f32>,
 };
 
 @group(0) @binding(0) 
@@ -25,8 +27,10 @@ fn vertexMain (
 
     var varyings: Varyings;
 
-    varyings.pos = uniforms.uPMatrix * uniforms.uMVMatrix * vec4<f32>(attrib.aVertexPosition, 1.0);
-    varyings.normal = attrib.aVertexNormal;
+    varyings.worldPos = uniforms.uMMatrix * vec4<f32>(attrib.aVertexPosition, 1.0);
+    varyings.worldPos = varyings.worldPos / varyings.worldPos.w;
+    varyings.pos = uniforms.uPMatrix * uniforms.uVMatrix * varyings.worldPos;
+    varyings.worldNormal = (uniforms.uMMatrix * vec4<f32>(attrib.aVertexNormal, 1.0)).rgb;
     varyings.uv = attrib.aVertexUv;
 
     return varyings;
