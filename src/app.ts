@@ -1,4 +1,3 @@
-import {TypedArray} from "three";
 import {Model, ModelVBType} from "./model";
 import {
     createBindGroupLayout,
@@ -38,6 +37,8 @@ export class App {
     public specularTexture: GPUTexture;
 
     public displacementTexture: GPUTexture;
+
+    public scatteringTexture: GPUTexture;
 
     private models: Model[] = [];
 
@@ -92,20 +93,26 @@ export class App {
 
     }
 
-    public async LoadAlbedoTexture () {
-        const response = await fetch('./models/Emily/Emily_diffuse_8k.png');
-        const imageBitmap = await createImageBitmap(await response.blob());
-
-        // Test exr
-        // console.log("start load exr")
-        // // let texture = await loadImage( "./models/Emily/Emily_diffuse.png");
-        // let texture = await loadEXR( "./models/Emily/Emily_diffuse_map.exr");
-        // console.log("finish load exr")
-        // console.log(texture);
-        // const blob = new Blob([texture.image.data], {type: 'image/png'});
-        // const imageBitmap = await createImageBitmap(blob);
-
+    public async LoadTextures () {
+        // albedo
+        let response = await fetch('./models/Emily/Emily_diffuse_8k.png');
+        let imageBitmap = await createImageBitmap(await response.blob());
         this.albedoTexture = createTextureFromImage(this.device, imageBitmap, true);
+
+        // specular
+        response = await fetch('./models/Emily/Emily_specular_8k.png');
+        imageBitmap = await createImageBitmap(await response.blob());
+        this.specularTexture = createTextureFromImage(this.device, imageBitmap, true);
+
+        // displacement
+        // response = await fetch('./models/Emily/Emily_displacement.png');
+        // imageBitmap = await createImageBitmap(await response.blob());
+        // this.displacementTexture = createTextureFromImage(this.device, imageBitmap, true);
+
+        // scattering
+        response = await fetch('./models/Emily/Emily_scattering_8k.png');
+        imageBitmap = await createImageBitmap(await response.blob());
+        this.scatteringTexture = createTextureFromImage(this.device, imageBitmap, true);
     }
 
     public InitPipeline (vxCode: string, fxCode: string) {
@@ -123,11 +130,13 @@ export class App {
             this.device);
 
         this.surfaceGroupLayout = createBindGroupLayout(
-            [0, 1],
-            [GPUShaderStage.FRAGMENT],
-            ['sampler', 'texture'],
+            [0, 1, 2, 3],
+            [GPUShaderStage.FRAGMENT, GPUShaderStage.FRAGMENT, GPUShaderStage.FRAGMENT, GPUShaderStage.FRAGMENT],
+            ['sampler', 'texture', 'texture', 'texture'],
             [
                 {type: 'filtering'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
                 {sampleType: 'float'}
             ],
             'app',
@@ -136,7 +145,9 @@ export class App {
         this.surfaceGroup = createBindGroup(
             [
                 this.sampler,
-                this.albedoTexture.createView()
+                this.albedoTexture.createView(),
+                this.specularTexture.createView(),
+                this.scatteringTexture.createView()
             ],
             this.surfaceGroupLayout,
             'app',
@@ -161,30 +172,6 @@ export class App {
             format: 'depth24plus', // depth format
             usage: GPUTextureUsage.RENDER_ATTACHMENT
         })
-    }
-
-    private _CreateGPUBuffer (typedArray: TypedArray, usage: GPUBufferUsageFlags) {
-
-        let gpuBuffer = this.device.createBuffer({
-
-            size: typedArray.byteLength,
-
-            usage: usage | GPUBufferUsage.COPY_DST,
-
-            mappedAtCreation: true
-
-        });
-
-        let constructor = typedArray.constructor as new (buffer: ArrayBuffer) => TypedArray;
-
-        let view = new constructor(gpuBuffer.getMappedRange());
-
-        view.set(typedArray, 0);
-
-        gpuBuffer.unmap();
-
-        return gpuBuffer;
-
     }
 
     public UploadModel (vxArray: Float32Array, idxArray: Uint32Array, nmArray: Float32Array, uvArray: Float32Array, mxArray: Float32Array) {

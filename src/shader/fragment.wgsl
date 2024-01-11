@@ -1,10 +1,29 @@
 @group(1) @binding(0) var textureSampler: sampler;
 @group(1) @binding(1) var albedoTexture: texture_2d<f32>;
+@group(1) @binding(2) var specularTexture: texture_2d<f32>;
+@group(1) @binding(3) var scatteringTexture: texture_2d<f32>;
 
 var<private> kDielectricSpec: vec4<f32> = vec4<f32>(0.04, 0.04, 0.04, 0.96);
 var<private> cameraPos: vec3<f32> = vec3<f32>(0.0, 0.0, 50.0);
 
+var<private> SubsurfaceColor: vec3<f32> = vec3<f32>(0.7, 0.1, 0.1);
+var<private> SubsurfaceRadius: vec3<f32> = vec3<f32>(1.0, 0.2, 0.1);
 
+fn mon2lin(
+    x: vec3<f32>,
+) -> vec3<f32> {
+    return pow(x, vec3<f32>(2.2, 2.2, 2.2));
+}
+
+fn lin2mon(
+    x: vec3<f32>,
+) -> vec3<f32> {
+    return pow(x, vec3<f32>(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+}
+
+///////////////////////////////
+//// Unity URP style BRDF /////
+///////////////////////////////
 fn OneMinusReflectivityMetallic(
 metallic: f32
 ) -> f32
@@ -66,12 +85,72 @@ fn BRDF(
     var brdfDiffuse = oneMinusReflectivity * albedo;
     var brdfSpecular = mix(kDielectricSpec.rgb, albedo, metallic);
 
-    var brdf = brdfDiffuse + brdfSpecular * BRDFSpecularTerm(N, L, V, roughness);
+    var brdf = vec3<f32>(0.0, 0.0, 0.0);
+    brdf += brdfDiffuse;
+    brdf += brdfSpecular * BRDFSpecularTerm(N, L, V, roughness);
 
     return brdf;
 }
 
+///////////////////////////////
+////// Nvidia Skin style //////
+///////////////////////////////
 
+// Based on Nvidia https://developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-14-advanced-techniques-realistic-real-time-skin
+// "When computing a Fresnel term for a rough surface like skin, all terms should be measured from the half-angle vector, H, and not from N"
+// For human skin, F0=0.028 (IOR=1.4)
+fn FresnelReflectance(
+    V: vec3<f32>,
+    H: vec3<f32>,
+    F0: f32,
+) -> f32 {
+    var base = 1.0 - saturate(dot(V, H));
+    var exponential = pow(base, 5.0);
+    return exponential + F0 * (1.0 - exponential);
+}
+
+// Based on Nvidia https://developer.nvidia.com/gpugems/gpugems3/part-iii-rendering/chapter-14-advanced-techniques-realistic-real-time-skin
+// Compare to normal Beckmann, there is no factor of 1/pi, keep in mind
+fn Beckmann(
+    NdotH: f32,
+    roughness: f32,
+) -> f32 {
+    var theta = acos(NdotH);
+    var tanTheta = tan(theta);
+    var val = 1.0 / (roughness * roughness * pow(cos(theta), 4.0)) * exp(-tanTheta * tanTheta / (roughness * roughness));
+    return val;
+}
+
+fn KSSkinSpecular(
+    N: vec3<f32>,
+    V: vec3<f32>,
+    L: vec3<f32>,
+    m: f32, // roughness
+    rho_s: f32, // Specular brightness (map)
+) -> f32 {
+    var result = 0.0;
+    var NdotL = saturate(dot(N, L));
+    var h = L + V; // Unnormalized half-way vector
+    var H = normalize(h);
+    var NdotH = saturate(dot(N, H));
+    var PH = pow(Beckmann(NdotH, m), 1.0); // can change power for visual effect, Nvidia uses 10, but not good for me
+    var F = FresnelReflectance(V, H, 0.028);
+    var frSpec = max(PH * F / (dot(h, h)), 0.0);
+    result = frSpec * NdotL * rho_s; // BRDF * dot(N, L) * rho_s
+
+    return result;
+}
+
+
+/////////////////////////////////
+// Wikihuman recommended style //
+/////////////////////////////////
+
+fn phongExponent(
+    glossiness: f32,
+) -> f32 {
+    return 1.0 / pow(1-glossiness, 3.5) - 1;
+}
 
 
 @fragment
@@ -81,12 +160,26 @@ fn fragmentMain(
     @location(2) uv: vec2<f32>,
 ) -> @location(0) vec4<f32> {
     var albedo = textureSample(albedoTexture, textureSampler, uv).rgb;
+    albedo = mon2lin(albedo);
     var lightDir = normalize(vec3<f32>(0.0, 1.0, 1.0));
     var viewDir = normalize(cameraPos - worldPos.xyz);
     var N = normalize(worldNormal);
-    var brdf = BRDF(albedo, 0.0, 0.4, N, lightDir, viewDir);
-    var radiance = vec3<f32>(1.5, 1.5, 1.5);
-    var color = brdf * radiance * dot(N, viewDir);
+    var radiance = vec3<f32>(1.2, 1.2, 1.2);
+//    Unity style
+//    var brdf = BRDF(albedo, 0.0, 0.4, N, lightDir, viewDir);
+//    var color = brdf * radiance * dot(N, viewDir);
+
+    var rho_s = textureSample(specularTexture, textureSampler, uv).r;
+    // rho_s *= 0.4;
+    // var rho_s = 0.9;
+    var m = 0.3;
+    var specular = radiance/* * lightShadow*/ * KSSkinSpecular(N, viewDir, lightDir, m, rho_s);
+    var diffuse = radiance * albedo * dot(N, lightDir);
+
+    var color = specular + diffuse;
+    //  = vec3(rho_s, rho_s, rho_s);
+    color = lin2mon(color);
+
 
     return vec4<f32>(color, 1.0);
 }

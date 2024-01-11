@@ -42,7 +42,7 @@ let main = async () => {
 
     let camera = new PerspectiveCamera( 90, document.body.clientWidth / document.body.clientHeight, 0.1, 100 );
 
-    camera.position.set( 0, 0, 50 );
+    camera.position.set( 0, 0, 30 );
 
     camera.updateMatrixWorld( true);
 
@@ -58,11 +58,11 @@ let main = async () => {
 
     await app.InitWebGPU();
 
-    await app.LoadAlbedoTexture();
+    await app.LoadTextures();
 
     app.InitPipeline( vxCode, fxCode );
 
-    let lastTime = 0, rotationSpeed = 0.001;
+    let lastTime = 0, rotationSpeed = 0.00;
     let modelMMatrix = new Matrix4()
 
     for (let i = 0; i < modelVertices.length; i++) {
@@ -97,8 +97,8 @@ let main = async () => {
 
         offset.x += 0.00001 * elapsed ;
 
-        camera.position.set( 0, 0, 50 );
-        camera.updateMatrixWorld( true);
+        // camera.position.set( 0, 0, 50 );
+        // camera.updateMatrixWorld( true);
         vMatrix = camera.matrixWorldInverse;
 
         let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(modelMMatrix.toArray()) );
