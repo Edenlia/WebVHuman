@@ -1,7 +1,10 @@
-struct Uniforms {
+struct ModelUniforms {
+    @size(64) uMMatrix: mat4x4<f32>,
+};
+
+struct CameraUniforms {
     @size(64) uPMatrix: mat4x4<f32>,
     @size(64) uVMatrix: mat4x4<f32>,
-    @size(64) uMMatrix: mat4x4<f32>,
 };
 
 struct Attributes {
@@ -18,7 +21,10 @@ struct Varyings {
 };
 
 @group(0) @binding(0) 
-var<uniform> uniforms: Uniforms;
+var<uniform> modelUniforms: ModelUniforms;
+
+@group(2) @binding(0)
+var<uniform> cameraUniforms: CameraUniforms;
 
 @vertex
 fn vertexMain (
@@ -27,10 +33,10 @@ fn vertexMain (
 
     var varyings: Varyings;
 
-    varyings.worldPos = uniforms.uMMatrix * vec4<f32>(attrib.aVertexPosition, 1.0);
+    varyings.worldPos = modelUniforms.uMMatrix * vec4<f32>(attrib.aVertexPosition, 1.0);
     varyings.worldPos = varyings.worldPos / varyings.worldPos.w;
-    varyings.pos = uniforms.uPMatrix * uniforms.uVMatrix * varyings.worldPos;
-    varyings.worldNormal = (uniforms.uMMatrix * vec4<f32>(attrib.aVertexNormal, 1.0)).rgb;
+    varyings.pos = cameraUniforms.uPMatrix * cameraUniforms.uVMatrix * varyings.worldPos;
+    varyings.worldNormal = (modelUniforms.uMMatrix * vec4<f32>(attrib.aVertexNormal, 1.0)).rgb;
     varyings.uv = attrib.aVertexUv;
 
     return varyings;

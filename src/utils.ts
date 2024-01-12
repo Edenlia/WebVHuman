@@ -1,3 +1,5 @@
+import {TypedArray} from "three";
+
 type BindGroupBindingLayout =
   | GPUBufferBindingLayout
   | GPUTextureBindingLayout
@@ -125,6 +127,46 @@ export const createVBuffer = (
 
   return layout;
 };
+
+export const createGPUBuffer = (
+    device: GPUDevice,
+    typedArray: TypedArray,
+    usage: GPUBufferUsageFlags,
+) : GPUBuffer => {
+  let gpuBuffer = device.createBuffer({
+
+    size: typedArray.byteLength,
+
+    usage: usage | GPUBufferUsage.COPY_DST,
+
+    mappedAtCreation: true
+
+  });
+
+  let constructor = typedArray.constructor as new (buffer: ArrayBuffer) => TypedArray;
+
+  let view = new constructor(gpuBuffer.getMappedRange());
+
+  view.set(typedArray, 0);
+
+  gpuBuffer.unmap();
+
+  return gpuBuffer;
+}
+
+export const updateGPUBuffer = (
+    device: GPUDevice,
+    typedArray: TypedArray,
+    gpuBuffer: GPUBuffer,
+    offset: number = 0
+    ) => {
+  device.queue.writeBuffer(
+      gpuBuffer,
+      offset,
+      typedArray.buffer,
+      typedArray.byteOffset,
+      typedArray.byteLength );
+    }
 
 export const create3DRenderPipeline = (
   device: GPUDevice,

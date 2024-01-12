@@ -1,6 +1,5 @@
-import {TypedArray} from "three";
 import {App} from "./app";
-import {createBindGroup} from "./utils";
+import {createBindGroup, createGPUBuffer, updateGPUBuffer} from "./utils";
 
 export enum ModelVBType {
     P = 0,
@@ -34,30 +33,6 @@ export class Model {
 
     public matrixArray: Float32Array;
 
-    private _CreateGPUBuffer (device: GPUDevice, typedArray: TypedArray, usage: GPUBufferUsageFlags) {
-
-        let gpuBuffer = device.createBuffer({
-
-            size: typedArray.byteLength,
-
-            usage: usage | GPUBufferUsage.COPY_DST,
-
-            mappedAtCreation: true
-
-        });
-
-        let constructor = typedArray.constructor as new (buffer: ArrayBuffer) => TypedArray;
-
-        let view = new constructor(gpuBuffer.getMappedRange());
-
-        view.set(typedArray, 0);
-
-        gpuBuffer.unmap();
-
-        return gpuBuffer;
-
-    }
-
     public InitModel (type: ModelVBType, mxArray: Float32Array, vxArray: Float32Array, idxArray: Uint32Array, nmArray : Float32Array = new Float32Array(0), uvArray: Float32Array = new Float32Array(0)) {
 
             this.vbType = type;
@@ -77,28 +52,19 @@ export class Model {
             this.indexCount = idxArray.length;
     }
 
-    private _UpdateGPUBuffer (device: GPUDevice, typedArray: TypedArray, gpuBuffer: GPUBuffer) {
-        device.queue.writeBuffer(
-            gpuBuffer,
-            0,
-            typedArray.buffer,
-            typedArray.byteOffset,
-            typedArray.byteLength );
-    }
-
     public InitGPUBuffer (device: GPUDevice, app: App) {
 
         let vxArray = this.GetVertexInput();
 
-        this.vertexBuffer = this._CreateGPUBuffer(device, vxArray, GPUBufferUsage.VERTEX);
+        this.vertexBuffer = createGPUBuffer(device, vxArray, GPUBufferUsage.VERTEX);
 
-        this.indexBuffer = this._CreateGPUBuffer(device, this.indexArray, GPUBufferUsage.INDEX);
+        this.indexBuffer = createGPUBuffer(device, this.indexArray, GPUBufferUsage.INDEX);
 
-        this.uniformBuffer = this._CreateGPUBuffer(device, this.matrixArray, GPUBufferUsage.UNIFORM);
+        this.uniformBuffer = createGPUBuffer(device, this.matrixArray, GPUBufferUsage.UNIFORM);
 
         this.uniformBindGroup = createBindGroup(
             [{buffer: this.uniformBuffer}],
-            app.uniformGroupLayout,
+            app.modelUniformGroupLayout,
             "model",
             device
         );
@@ -106,7 +72,7 @@ export class Model {
 
     public UpdateUniformBuffer (device: GPUDevice, mxArray: Float32Array) {
         // console.log("update uniform buffer");
-        this._UpdateGPUBuffer(device, mxArray, this.uniformBuffer);
+        updateGPUBuffer(device, mxArray, this.uniformBuffer);
     }
 
     private GetVertexInput(): any {

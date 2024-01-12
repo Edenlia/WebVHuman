@@ -1,7 +1,15 @@
+struct MainLightUniforms {
+    @size(16) uLightDirection: vec3<f32>,
+    @size(16) uLightColor: vec3<f32>,
+};
+
 @group(1) @binding(0) var textureSampler: sampler;
 @group(1) @binding(1) var albedoTexture: texture_2d<f32>;
 @group(1) @binding(2) var specularTexture: texture_2d<f32>;
 @group(1) @binding(3) var scatteringTexture: texture_2d<f32>;
+
+@group(2) @binding(1)
+var<uniform> mainLightUniforms: MainLightUniforms;
 
 var<private> kDielectricSpec: vec4<f32> = vec4<f32>(0.04, 0.04, 0.04, 0.96);
 var<private> cameraPos: vec3<f32> = vec3<f32>(0.0, 0.0, 50.0);
@@ -161,10 +169,11 @@ fn fragmentMain(
 ) -> @location(0) vec4<f32> {
     var albedo = textureSample(albedoTexture, textureSampler, uv).rgb;
     albedo = mon2lin(albedo);
-    var lightDir = normalize(vec3<f32>(0.0, 1.0, 1.0));
+    var lightDir = mainLightUniforms.uLightDirection; // normlaized in software stage
     var viewDir = normalize(cameraPos - worldPos.xyz);
     var N = normalize(worldNormal);
-    var radiance = vec3<f32>(1.2, 1.2, 1.2);
+    var radiance = mainLightUniforms.uLightColor;
+
 //    Unity style
 //    var brdf = BRDF(albedo, 0.0, 0.4, N, lightDir, viewDir);
 //    var color = brdf * radiance * dot(N, viewDir);

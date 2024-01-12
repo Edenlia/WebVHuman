@@ -8,6 +8,7 @@ import fxCode from './shader/fragment.wgsl?raw';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 
 import { PerspectiveCamera, Matrix4, Vector3 } from 'three';
+import {DirectionalLight} from "./light";
 
 
 const modelVertices = [] as Float32Array[];
@@ -45,14 +46,11 @@ let main = async () => {
     camera.position.set( 0, 0, 30 );
 
     camera.updateMatrixWorld( true);
-
-    let pMatrix = camera.projectionMatrix;
-
-    let vMatrix = camera.matrixWorldInverse;
-
     let backgroundColor = { r: 0, g: 0, b: 0, a: 1.0 };
 
-    let app = new App();
+    let mainLight = new DirectionalLight(new Vector3(0, 1, 1), new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1.2, false);
+
+    let app = new App(camera, mainLight);
 
     app.CreateCanvas( document.body );
 
@@ -60,9 +58,11 @@ let main = async () => {
 
     await app.LoadTextures();
 
+    app.InitBuffers();
+
     app.InitPipeline( vxCode, fxCode );
 
-    let lastTime = 0, rotationSpeed = 0.00;
+    let lastTime = 0, rotationSpeed = 0.001;
     let modelMMatrix = new Matrix4()
 
     for (let i = 0; i < modelVertices.length; i++) {
@@ -70,18 +70,10 @@ let main = async () => {
         // console.log("modelVertices ", i, ": ", modelVertices[i]);
         // console.log("modelIndices ", i, ": ", modelIndices[i]);
 
-        // let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat( new Matrix4().multiplyMatrices( vMatrix, modelMMatrix ).toArray() ) );
-        let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(modelMMatrix.toArray()) );
+        let modelUniformBufferView = new Float32Array( modelMMatrix.toArray() );
 
         app.UploadModel( modelVertices[i], modelIndices[i], modelNormals[i], modelUvs[i], modelUniformBufferView );
     }
-
-    // modelMMatrix.makeTranslation( 100, 0, -7.0)
-
-    console.log( modelMMatrix.toArray() );
-
-    let offset = new Vector3(0, 0, 0)
-
 
     app.RunRenderLoop(() => {
 
@@ -95,17 +87,15 @@ let main = async () => {
 
         modelMMatrix = new Matrix4().multiplyMatrices(new Matrix4().makeRotationY(rotationSpeed * elapsed), modelMMatrix);
 
-        offset.x += 0.00001 * elapsed ;
+        let modelUniformBufferView = new Float32Array( modelMMatrix.toArray() );
 
-        // camera.position.set( 0, 0, 50 );
-        // camera.updateMatrixWorld( true);
-        vMatrix = camera.matrixWorldInverse;
+        // app.RotateCamera(elapsed);
 
-        let modelUniformBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(modelMMatrix.toArray()) );
+        // app.RotateLight(elapsed);
 
-        for (let i = 0; i < modelVertices.length; i++) {
-            app.UpdateModelUniformBuffer(i,  modelUniformBufferView);
-        }
+        // for (let i = 0; i < modelVertices.length; i++) {
+        //     app.UpdateModelUniformBuffer(i,  modelUniformBufferView);
+        // }
 
         app.Draw(backgroundColor);
     })
