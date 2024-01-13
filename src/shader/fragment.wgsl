@@ -210,7 +210,7 @@ fn fragmentMain(
     // var rho_s = 0.9;
     var m = 0.3;
     var specular = radiance/* * lightShadow*/ * KSSkinSpecular(N, viewDir, lightDir, m, rho_s);
-    var diffuse = radiance * albedo * dot(N, lightDir);
+    var diffuse = radiance * albedo * max(dot(N, lightDir), 0.0);
 
     var color = specular + diffuse;
     color *= lightShadow;
