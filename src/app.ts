@@ -3,8 +3,8 @@ import {
     createBindGroupLayout,
     create3DRenderPipeline, createTextureFromImage, createBindGroup, createGPUBuffer, updateGPUBuffer,
 } from './utils';
-import {Camera, Vector3} from "three";
-import {DirectionalLight} from "./light";
+import {Camera, Vector3, DirectionalLight, OrthographicCamera, PerspectiveCamera, WebGPUCoordinateSystem} from "three";
+// import {DirectionalLight} from "./light";
 
 export class App {
 
@@ -20,25 +20,35 @@ export class App {
 
     public modelUniformGroupLayout: GPUBindGroupLayout;
 
+    public surfaceGroupLayout: GPUBindGroupLayout;
+
     public globalUniformGroupLayout: GPUBindGroupLayout;
 
+    public shadowGroupLayout: GPUBindGroupLayout;
+
+    public surfaceGroup: GPUBindGroup;
+
     public globalUniformGroup: GPUBindGroup;
+
+    public shadowGroup: GPUBindGroup;
 
     public lightBuffer: GPUBuffer;
 
     public cameraBuffer: GPUBuffer;
 
-    public sampler: GPUSampler;
+    public textureSampler: GPUSampler;
 
-    public surfaceGroupLayout: GPUBindGroupLayout;
-
-    public surfaceGroup: GPUBindGroup;
+    public depthSampler: GPUSampler;
 
     public renderPipeline: GPURenderPipeline;
+
+    public shadowPipeline: GPURenderPipeline;
 
     public devicePixelWidth: number;
 
     public devicePixelHeight: number;
+
+    public shadowDepthTexture: GPUTexture;
 
     public depthTexture: GPUTexture;
 
@@ -61,6 +71,8 @@ export class App {
     private lightTimer: number = 0;
 
     private rotationSpeed: number = 0.001;
+
+    private shadowMapSize: number = 1024;
 
     public CreateCanvas (rootElement: HTMLElement) {
 
@@ -99,17 +111,32 @@ export class App {
 
         let pMatrix = this.camera.projectionMatrix;
         let vMatrix = this.camera.matrixWorldInverse;
-        let cameraBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()) );
+        let cameraBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(this.camera.position.toArray()).concat([0.0]) );
         updateGPUBuffer(this.device, cameraBufferView, this.cameraBuffer);
     }
 
     public UpdateLight (position: Vector3, target: Vector3) {
-        this.mainLight.updatePosAndDir(position, target);
+        this.mainLight.position.copy(position);
+        this.mainLight.lookAt(target);
 
-        let lightDir = this.mainLight.position.clone().sub(this.mainLight.lookAt).normalize();
-        let lightColor = this.mainLight.color.clone().multiplyScalar(this.mainLight.intensity);
+        this.mainLight.updateMatrixWorld(true);
+
+        // this.mainLight.intensity = 1.2;
+        // this.mainLight.color.setRGB(1, 1, 1);
+
+        let lightDir = this.mainLight.position.clone().sub(this.mainLight.target.position).normalize();
+        let lightColor = new Vector3(this.mainLight.color.r, this.mainLight.color.g, this.mainLight.color.b);
+        lightColor.multiplyScalar(this.mainLight.intensity);
+        let shadowCamera = new OrthographicCamera(-20, 20, 20, -20, 0.1, 100);
+        shadowCamera.coordinateSystem = WebGPUCoordinateSystem;
+        shadowCamera.updateProjectionMatrix();
+        shadowCamera.position.copy(this.mainLight.position);
+        shadowCamera.lookAt(this.mainLight.target.position);
+        shadowCamera.updateMatrixWorld(true);
+        let lightVPMatrix = shadowCamera.projectionMatrix.clone().multiply(shadowCamera.matrixWorldInverse);
+
         // each slot should be padded to a multiple of 16 bytes
-        let lightBufferView = new Float32Array( lightDir.toArray().concat([0.0] /*padding*/).concat(lightColor.toArray()).concat([0.0]/*padding*/) );
+        let lightBufferView = new Float32Array( lightDir.toArray().concat([0.0] /*padding*/).concat(lightColor.toArray()).concat([0.0]/*padding*/).concat(lightVPMatrix.toArray()) );
         updateGPUBuffer(this.device, lightBufferView, this.lightBuffer);
     }
 
@@ -126,7 +153,7 @@ export class App {
     }
 
     public RotateLight (elapsed: number) {
-        let distanceToCenter = 1;
+        let distanceToCenter = 30;
         this.lightTimer += elapsed;
         let position = new Vector3(
             Math.sin(this.lightTimer * this.rotationSpeed) * distanceToCenter,
@@ -185,7 +212,7 @@ export class App {
         imageBitmap = await createImageBitmap(await response.blob());
         this.scatteringTexture = createTextureFromImage(this.device, imageBitmap, true);
 
-        this.sampler = this.device.createSampler({
+        this.textureSampler = this.device.createSampler({
             magFilter: 'linear',
             minFilter: 'linear',
         });
@@ -223,8 +250,8 @@ export class App {
                 1,
             ],
             [
-                GPUShaderStage.VERTEX,
-                GPUShaderStage.FRAGMENT,
+                GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
             ],
             [
                 'buffer',
@@ -237,11 +264,29 @@ export class App {
             'app',
             this.device);
 
+        // shadow map and sampler
+        this.shadowGroupLayout = createBindGroupLayout(
+            [0, 1],
+            [
+                GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+                GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT
+            ],
+            [
+                'texture',
+                'sampler'
+            ],
+            [
+                {sampleType: 'depth'},
+                {type: 'comparison'},
+            ],
+            'app',
+            this.device);
+
         // 2. Init global groups
         // surface group
         this.surfaceGroup = createBindGroup(
             [
-                this.sampler,
+                this.textureSampler,
                 this.albedoTexture.createView(),
                 this.specularTexture.createView(),
                 this.scatteringTexture.createView()
@@ -254,15 +299,30 @@ export class App {
         // light and camera group
         let pMatrix = this.camera.projectionMatrix;
         let vMatrix = this.camera.matrixWorldInverse;
-        let cameraBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()) );
+
+        let cameraBufferView = new Float32Array( pMatrix.toArray().concat(vMatrix.toArray()).concat(this.camera.position.toArray()).concat([0.0]) );
         this.cameraBuffer = createGPUBuffer(this.device, cameraBufferView, GPUBufferUsage.UNIFORM);
 
         // from surface to light source
-        let lightDir = this.mainLight.position.clone().sub(this.mainLight.lookAt).normalize();
-        let lightColor = this.mainLight.color.clone().multiplyScalar(this.mainLight.intensity);
+        let lightDir = this.mainLight.position.clone().sub(this.mainLight.target.position).normalize();
+        let lightColor = new Vector3(this.mainLight.color.r, this.mainLight.color.g, this.mainLight.color.b);
+        lightColor.multiplyScalar(this.mainLight.intensity);
+        let shadowCamera = new OrthographicCamera(-20, 20, 20, -20, 0.1, 100);
+        shadowCamera.coordinateSystem = WebGPUCoordinateSystem;
+        shadowCamera.updateProjectionMatrix();
+        shadowCamera.position.copy(this.mainLight.position);
+        shadowCamera.lookAt(this.mainLight.target.position);
+        shadowCamera.updateMatrixWorld(true);
+        let lightVPMatrix = shadowCamera.projectionMatrix.clone().multiply(shadowCamera.matrixWorldInverse);
+
         // each slot should be padded to a multiple of 16 bytes
-        let lightBufferView = new Float32Array( lightDir.toArray().concat([0.0] /*padding*/).concat(lightColor.toArray()).concat([0.0]/*padding*/) );
-        console.log("lightBufferView: ", lightBufferView);
+        let lightBufferView = new Float32Array(
+            lightDir.toArray()
+                .concat([0.0] /*padding*/)
+                .concat(lightColor.toArray())
+                .concat([0.0]/*padding*/)
+                .concat(lightVPMatrix.toArray())
+        );
         this.lightBuffer = createGPUBuffer(this.device, lightBufferView, GPUBufferUsage.UNIFORM);
 
         this.globalUniformGroup = createBindGroup(
@@ -275,9 +335,51 @@ export class App {
             this.device
         )
 
+        // shadow group
+        this.depthSampler = this.device.createSampler({
+            compare: 'less',
+        })
+
+        this.shadowDepthTexture = this.device.createTexture({
+            size: { width: this.shadowMapSize, height: this.shadowMapSize, depthOrArrayLayers: 1 },
+            format: 'depth32float', // depth format
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+
+        this.shadowGroup = createBindGroup(
+            [
+                this.shadowDepthTexture.createView(),
+                this.depthSampler
+            ],
+            this.shadowGroupLayout,
+            'app',
+            this.device
+        )
+
     }
 
-    public InitPipeline (vxCode: string, fxCode: string) {
+    public InitShadowPipeline (vxCode: string) {
+
+        this.shadowPipeline = create3DRenderPipeline(
+            this.device,
+            'app',
+            [
+                this.modelUniformGroupLayout,
+                this.globalUniformGroupLayout,
+            ],
+            vxCode,
+            // position, normal, uv
+            ['float32x3', 'float32x3', 'float32x2'],
+            null,
+            null,
+            true,
+            'triangle-list',
+            'back',
+            'depth32float'
+        );
+    }
+
+    public InitRenderPipeline (vxCode: string, fxCode: string) {
 
         this.renderPipeline = create3DRenderPipeline(
             this.device,
@@ -286,6 +388,7 @@ export class App {
                 this.modelUniformGroupLayout,
                 this.surfaceGroupLayout,
                 this.globalUniformGroupLayout,
+                this.shadowGroupLayout,
             ],
             vxCode,
             // position, normal, uv
@@ -314,22 +417,20 @@ export class App {
             this.models.push(model);
     }
 
-    public SetRenderBuffer(passEncoder: GPURenderPassEncoder, vertexBuffer: GPUBuffer, indexBuffer: GPUBuffer, uniformBindGroup: GPUBindGroup) {
-
-        passEncoder.setVertexBuffer(0, vertexBuffer);
-
-        passEncoder.setIndexBuffer(indexBuffer, "uint32");
-
-        passEncoder.setBindGroup(0, uniformBindGroup);
-
-        passEncoder.setBindGroup(1, this.surfaceGroup);
-
-        passEncoder.setBindGroup(2, this.globalUniformGroup);
-    }
-
     public Draw(clearColor: GPUColorDict) {
 
-        const commandEncoder = this.device.createCommandEncoder();
+        let shadowPassDescriptor: GPURenderPassDescriptor = {
+            colorAttachments: [],
+
+            depthStencilAttachment: {
+                view: this.shadowDepthTexture.createView(),
+
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            },
+        }
+
         let renderPassDescriptor: GPURenderPassDescriptor = {
 
             colorAttachments: [{
@@ -352,25 +453,45 @@ export class App {
             },
 
         }
-        const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-        passEncoder.setPipeline(this.renderPipeline);
-        passEncoder.setViewport(0, 0, this.devicePixelWidth, this.devicePixelHeight, 0, 1);
 
+
+        const commandEncoder = this.device.createCommandEncoder();
+
+        const shadowPass = commandEncoder.beginRenderPass(shadowPassDescriptor);
+        shadowPass.setPipeline(this.shadowPipeline);
 
         for (let i = 0; i < this.models.length; i++) {
 
-            this.SetRenderBuffer(passEncoder, this.models[i].vertexBuffer, this.models[i].indexBuffer, this.models[i].uniformBindGroup);
+            shadowPass.setVertexBuffer(0, this.models[i].vertexBuffer);
+            shadowPass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
+            shadowPass.setBindGroup(0, this.models[i].uniformBindGroup);
+            shadowPass.setBindGroup(1, this.globalUniformGroup);
 
-            passEncoder.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
+            shadowPass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
+        }
+
+        shadowPass.end();
+
+        const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
+        renderPass.setPipeline(this.renderPipeline);
+        renderPass.setViewport(0, 0, this.devicePixelWidth, this.devicePixelHeight, 0, 1);
+
+        for (let i = 0; i < this.models.length; i++) {
+
+            renderPass.setVertexBuffer(0, this.models[i].vertexBuffer);
+            renderPass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
+            renderPass.setBindGroup(0, this.models[i].uniformBindGroup);
+            renderPass.setBindGroup(1, this.surfaceGroup);
+            renderPass.setBindGroup(2, this.globalUniformGroup);
+            renderPass.setBindGroup(3, this.shadowGroup);
+
+            renderPass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
 
         }
 
-        passEncoder.end();
+        renderPass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
-
-
-
     }
 
     public UpdateModelUniformBuffer (modelIndex: number, mxArray: Float32Array) {

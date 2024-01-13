@@ -178,7 +178,8 @@ export const create3DRenderPipeline = (
   presentationFormat: GPUTextureFormat,
   depthTest = false,
   topology: GPUPrimitiveTopology = 'triangle-list',
-  cullMode: GPUCullMode = 'back'
+  cullMode: GPUCullMode = 'back',
+  depthFormat: GPUTextureFormat = 'depth24plus'
 ) => {
   const pipelineDescriptor: GPURenderPipelineDescriptor = {
     label: `${label}.pipeline`,
@@ -195,7 +196,14 @@ export const create3DRenderPipeline = (
       buffers:
         vBufferFormats.length !== 0 ? [createVBuffer(vBufferFormats)] : [],
     },
-    fragment: {
+    primitive: {
+      topology: topology,
+      cullMode: cullMode,
+    },
+  };
+
+  if (fragmentShader !== null) {
+    pipelineDescriptor.fragment = {
       module: device.createShaderModule({
         label: `${label}.fragmentShader`,
         code: fragmentShader,
@@ -206,17 +214,14 @@ export const create3DRenderPipeline = (
           format: presentationFormat,
         },
       ],
-    },
-    primitive: {
-      topology: topology,
-      cullMode: cullMode,
-    },
-  };
+    };
+  }
+
   if (depthTest) {
     pipelineDescriptor.depthStencil = {
       depthCompare: 'less',
       depthWriteEnabled: true,
-      format: 'depth24plus',
+      format: depthFormat,
     };
   }
   return device.createRenderPipeline(pipelineDescriptor);

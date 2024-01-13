@@ -1,6 +1,13 @@
+struct CameraUniforms {
+    @size(64) uPMatrix: mat4x4<f32>,
+    @size(64) uVMatrix: mat4x4<f32>,
+    @size(16) uCameraPosition: vec3<f32>,
+};
+
 struct MainLightUniforms {
     @size(16) uLightDirection: vec3<f32>,
     @size(16) uLightColor: vec3<f32>,
+    @size(64) uLightVPMatrix: mat4x4<f32>,
 };
 
 @group(1) @binding(0) var textureSampler: sampler;
@@ -8,12 +15,18 @@ struct MainLightUniforms {
 @group(1) @binding(2) var specularTexture: texture_2d<f32>;
 @group(1) @binding(3) var scatteringTexture: texture_2d<f32>;
 
+@group(2) @binding(0)
+var<uniform> cameraUniforms: CameraUniforms;
+
 @group(2) @binding(1)
 var<uniform> mainLightUniforms: MainLightUniforms;
 
-var<private> kDielectricSpec: vec4<f32> = vec4<f32>(0.04, 0.04, 0.04, 0.96);
-var<private> cameraPos: vec3<f32> = vec3<f32>(0.0, 0.0, 50.0);
+@group(3) @binding(0) var shadowMap: texture_depth_2d;
+@group(3) @binding(1) var shadowSampler: sampler_comparison;
 
+var<private> shadowDepthTextureSize: f32 = 1024.0;
+
+var<private> kDielectricSpec: vec4<f32> = vec4<f32>(0.04, 0.04, 0.04, 0.96);
 var<private> SubsurfaceColor: vec3<f32> = vec3<f32>(0.7, 0.1, 0.1);
 var<private> SubsurfaceRadius: vec3<f32> = vec3<f32>(1.0, 0.2, 0.1);
 
@@ -149,15 +162,25 @@ fn KSSkinSpecular(
     return result;
 }
 
-
-/////////////////////////////////
-// Wikihuman recommended style //
-/////////////////////////////////
-
-fn phongExponent(
-    glossiness: f32,
+fn visibility(
+    shadowPos: vec3<f32>,
 ) -> f32 {
-    return 1.0 / pow(1-glossiness, 3.5) - 1;
+    // PCF for 3x3
+    var v = 0.0;
+    let oneOverShadowDepthTextureSize = 1.0 / shadowDepthTextureSize;
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+          let offset = vec2<f32>(vec2(x, y)) * oneOverShadowDepthTextureSize;
+
+          v += textureSampleCompare(
+            shadowMap, shadowSampler,
+            shadowPos.xy + offset, shadowPos.z - 0.007
+          );
+        }
+      }
+    v /= 9.0;
+
+    return v;
 }
 
 
@@ -166,13 +189,17 @@ fn fragmentMain(
     @location(0) worldPos: vec4<f32>,
     @location(1) worldNormal: vec3<f32>,
     @location(2) uv: vec2<f32>,
+    @location(3) shadowPos: vec3<f32>,
 ) -> @location(0) vec4<f32> {
     var albedo = textureSample(albedoTexture, textureSampler, uv).rgb;
     albedo = mon2lin(albedo);
     var lightDir = mainLightUniforms.uLightDirection; // normlaized in software stage
+    var cameraPos = cameraUniforms.uCameraPosition;
     var viewDir = normalize(cameraPos - worldPos.xyz);
     var N = normalize(worldNormal);
     var radiance = mainLightUniforms.uLightColor;
+    var shadowIntensity = 0.8;
+    var lightShadow = visibility(shadowPos) * shadowIntensity + (1.0 - shadowIntensity);
 
 //    Unity style
 //    var brdf = BRDF(albedo, 0.0, 0.4, N, lightDir, viewDir);
@@ -186,9 +213,8 @@ fn fragmentMain(
     var diffuse = radiance * albedo * dot(N, lightDir);
 
     var color = specular + diffuse;
-    //  = vec3(rho_s, rho_s, rho_s);
+    color *= lightShadow;
     color = lin2mon(color);
-
 
     return vec4<f32>(color, 1.0);
 }

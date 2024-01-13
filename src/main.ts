@@ -5,10 +5,11 @@ import { App } from './app';
 import vxCode from './shader/vertex.wgsl?raw';
 // @ts-ignore
 import fxCode from './shader/fragment.wgsl?raw';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
+// @ts-ignore
+import vxShadowCode from './shader/shadowVertex.wgsl?raw';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 
-import { PerspectiveCamera, Matrix4, Vector3 } from 'three';
-import {DirectionalLight} from "./light";
+import {PerspectiveCamera, Matrix4, DirectionalLight, OrthographicCamera, WebGPUCoordinateSystem} from 'three';
 
 
 const modelVertices = [] as Float32Array[];
@@ -42,13 +43,23 @@ let main = async () => {
     await loadModel();
 
     let camera = new PerspectiveCamera( 90, document.body.clientWidth / document.body.clientHeight, 0.1, 100 );
+    // let camera = new OrthographicCamera( -20, 20, 20, -20, 0.1, 100);
+
+    camera.coordinateSystem = WebGPUCoordinateSystem;
+    camera.updateProjectionMatrix();
 
     camera.position.set( 0, 0, 30 );
+    camera.lookAt( 0, 0, 0 );
 
     camera.updateMatrixWorld( true);
+
     let backgroundColor = { r: 0, g: 0, b: 0, a: 1.0 };
 
-    let mainLight = new DirectionalLight(new Vector3(0, 1, 1), new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1.2, false);
+    let mainLight = new DirectionalLight();
+    mainLight.position.set( 0, 0, 30 );
+    mainLight.lookAt( 0, 0, 0 );
+    mainLight.intensity = 1.2;
+    mainLight.color.setRGB(1, 1, 1);
 
     let app = new App(camera, mainLight);
 
@@ -60,7 +71,9 @@ let main = async () => {
 
     app.InitBuffers();
 
-    app.InitPipeline( vxCode, fxCode );
+    app.InitShadowPipeline( vxShadowCode);
+
+    app.InitRenderPipeline( vxCode, fxCode );
 
     let lastTime = 0, rotationSpeed = 0.001;
     let modelMMatrix = new Matrix4()
@@ -91,7 +104,7 @@ let main = async () => {
 
         // app.RotateCamera(elapsed);
 
-        // app.RotateLight(elapsed);
+        app.RotateLight(elapsed);
 
         // for (let i = 0; i < modelVertices.length; i++) {
         //     app.UpdateModelUniformBuffer(i,  modelUniformBufferView);
