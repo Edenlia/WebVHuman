@@ -9,8 +9,8 @@ struct FragOutput {
 @group(2) @binding(2) var inputTexture2: texture_2d<f32>;
 @group(2) @binding(3) var inputTexture3: texture_2d<f32>;
 
-const isU = true;
-const isFirst = true;
+const isU = false;
+const isFirst = false;
 const radius = 1.5;
 const textureSize: f32 = 1024.0;
 

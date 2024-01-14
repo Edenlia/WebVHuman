@@ -26,6 +26,8 @@ export class App {
 
     public gaussianInputGroupLayout: GPUBindGroupLayout;
 
+    public blurredIrradiancesGroupLayout: GPUBindGroupLayout;
+
     public globalUniformGroup: GPUBindGroup;
 
     public shadowGroup: GPUBindGroup;
@@ -37,6 +39,8 @@ export class App {
     public gaussianInputGroup3: GPUBindGroup;
 
     public gaussianInputGroup4: GPUBindGroup;
+
+    public blurredIrradiancesGroup: GPUBindGroup;
 
     public lightBuffer: GPUBuffer;
 
@@ -292,7 +296,7 @@ export class App {
                 {sampleType: 'float'},
                 {sampleType: 'float'},
             ],
-            'modelUniform',
+            'modelUniformGroupLayout',
             this.device);
 
         // Lights, camera view matrix, projection matrix
@@ -313,7 +317,7 @@ export class App {
                 {type: 'uniform' },
                 {type: 'uniform' },
             ],
-            'globalUniform',
+            'globalUniformGroupLayout',
             this.device);
 
         // shadow map and sampler
@@ -331,7 +335,7 @@ export class App {
                 {sampleType: 'depth'},
                 {type: 'comparison'},
             ],
-            'shadow',
+            'shadowGroupLayout',
             this.device);
 
         // gaussian blur input texture and sampler
@@ -355,7 +359,25 @@ export class App {
                 {sampleType: 'float'},
                 {sampleType: 'float'},
             ],
-            'gaussianInput',
+            'gaussianInputGroupLayout',
+            this.device);
+
+        // blurred irradiance textures, used in render pass
+        this.blurredIrradiancesGroupLayout = createBindGroupLayout(
+            [0, 1, 2, 3, 4, 5],
+            [
+                GPUShaderStage.FRAGMENT,
+            ],
+            ['texture', 'texture', 'texture', 'texture', 'texture', 'texture'],
+            [
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+            ],
+            'blurredIrradiancesGroupLayout',
             this.device);
 
         ///////////////////////////
@@ -544,6 +566,20 @@ export class App {
             'gaussianInput4',
             this.device
         )
+
+        this.blurredIrradiancesGroup = createBindGroup(
+            [
+                this.blurredTexture1.createView(),
+                this.blurredTexture2.createView(),
+                this.blurredTexture3.createView(),
+                this.blurredTexture4.createView(),
+                this.blurredTexture5.createView(),
+                this.blurredTexture6.createView(),
+            ],
+            this.blurredIrradiancesGroupLayout,
+            'blurredIrradiances',
+            this.device
+        )
     }
 
     public InitShadowPipeline (vxCode: string) {
@@ -692,6 +728,7 @@ export class App {
                 this.modelUniformGroupLayout,
                 this.globalUniformGroupLayout,
                 this.shadowGroupLayout,
+                this.blurredIrradiancesGroupLayout,
             ],
             vxCode,
             // position, normal, uv
@@ -821,6 +858,132 @@ export class App {
         gaussianPass1.end();
 
 
+        let gaussianPassDescriptor2: GPURenderPassDescriptor = {
+
+            colorAttachments: [
+                {
+                    view: this.blurredTexture1.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.blurredTexture2.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.blurredTexture3.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                }
+            ],
+            depthStencilAttachment: {
+                view: this.irradianceDepthTexture.createView(),
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            }
+        }
+        const gaussianPass2 = commandEncoder.beginRenderPass(gaussianPassDescriptor2);
+
+        gaussianPass2.setPipeline(this.gaussianPipeline2);
+        gaussianPass2.setVertexBuffer(0, this.model.vertexBuffer);
+        gaussianPass2.setIndexBuffer(this.model.indexBuffer, "uint32");
+        gaussianPass2.setBindGroup(0, this.model.uniformBindGroup);
+        gaussianPass2.setBindGroup(1, this.globalUniformGroup);
+        gaussianPass2.setBindGroup(2, this.gaussianInputGroup2);
+        gaussianPass2.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
+
+        gaussianPass2.end();
+
+
+        let gaussianPassDescriptor3: GPURenderPassDescriptor = {
+
+            colorAttachments: [
+                {
+                    view: this.intermediateTexture4.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.intermediateTexture5.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.intermediateTexture6.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                }
+            ],
+            depthStencilAttachment: {
+                view: this.irradianceDepthTexture.createView(),
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            }
+        }
+        const gaussianPass3 = commandEncoder.beginRenderPass(gaussianPassDescriptor3);
+
+        gaussianPass3.setPipeline(this.gaussianPipeline3);
+        gaussianPass3.setVertexBuffer(0, this.model.vertexBuffer);
+        gaussianPass3.setIndexBuffer(this.model.indexBuffer, "uint32");
+        gaussianPass3.setBindGroup(0, this.model.uniformBindGroup);
+        gaussianPass3.setBindGroup(1, this.globalUniformGroup);
+        gaussianPass3.setBindGroup(2, this.gaussianInputGroup3);
+        gaussianPass3.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
+
+        gaussianPass3.end();
+
+
+        let gaussianPassDescriptor4: GPURenderPassDescriptor = {
+
+            colorAttachments: [
+                {
+                    view: this.blurredTexture4.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.blurredTexture5.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.blurredTexture6.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                }
+            ],
+            depthStencilAttachment: {
+                view: this.irradianceDepthTexture.createView(),
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            }
+        }
+        const gaussianPass4 = commandEncoder.beginRenderPass(gaussianPassDescriptor4);
+
+        gaussianPass4.setPipeline(this.gaussianPipeline4);
+        gaussianPass4.setVertexBuffer(0, this.model.vertexBuffer);
+        gaussianPass4.setIndexBuffer(this.model.indexBuffer, "uint32");
+        gaussianPass4.setBindGroup(0, this.model.uniformBindGroup);
+        gaussianPass4.setBindGroup(1, this.globalUniformGroup);
+        gaussianPass4.setBindGroup(2, this.gaussianInputGroup4);
+        gaussianPass4.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
+
+        gaussianPass4.end();
+
+
         let renderPassDescriptor: GPURenderPassDescriptor = {
 
             colorAttachments: [{
@@ -846,6 +1009,7 @@ export class App {
         renderPass.setBindGroup(0, this.model.uniformBindGroup);
         renderPass.setBindGroup(1, this.globalUniformGroup);
         renderPass.setBindGroup(2, this.shadowGroup);
+        renderPass.setBindGroup(3, this.blurredIrradiancesGroup);
         renderPass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
 
         renderPass.end();

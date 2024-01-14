@@ -23,11 +23,25 @@ var<uniform> mainLightUniforms: MainLightUniforms;
 @group(2) @binding(0) var shadowMap: texture_depth_2d;
 @group(2) @binding(1) var shadowSampler: sampler_comparison;
 
+@group(3) @binding(0) var blurredIrradianceMap1: texture_2d<f32>;
+@group(3) @binding(1) var blurredIrradianceMap2: texture_2d<f32>;
+@group(3) @binding(2) var blurredIrradianceMap3: texture_2d<f32>;
+@group(3) @binding(3) var blurredIrradianceMap4: texture_2d<f32>;
+@group(3) @binding(4) var blurredIrradianceMap5: texture_2d<f32>;
+@group(3) @binding(5) var blurredIrradianceMap6: texture_2d<f32>;
+
 var<private> shadowDepthTextureSize: f32 = 1024.0;
 
 var<private> kDielectricSpec: vec4<f32> = vec4<f32>(0.04, 0.04, 0.04, 0.96);
 var<private> SubsurfaceColor: vec3<f32> = vec3<f32>(0.7, 0.1, 0.1);
 var<private> SubsurfaceRadius: vec3<f32> = vec3<f32>(1.0, 0.2, 0.1);
+
+const kernel1: vec4<f32> = vec4<f32>(0.0064, 0.233, 0.455, 0.649); // [variance, r, g, b]
+const kernel2: vec4<f32> = vec4<f32>(0.0484, 0.100, 0.336, 0.344);
+const kernel3: vec4<f32> = vec4<f32>(0.187, 0.118, 0.198, 0.0);
+const kernel4: vec4<f32> = vec4<f32>(0.567, 0.113, 0.007, 0.007);
+const kernel5: vec4<f32> = vec4<f32>(1.99, 0.358, 0.004, 0.0);
+const kernel6: vec4<f32> = vec4<f32>(7.41, 0.078, 0.0, 0.0);
 
 fn mon2lin(
     x: vec3<f32>,
@@ -209,7 +223,31 @@ fn fragmentMain(
     // var rho_s = 0.9;
     var m = 0.3;
     var specular = radiance * KSSkinSpecular(N, viewDir, lightDir, m, rho_s);
-    var diffuse = radiance * albedo * max(dot(N, lightDir), 0.0) / 3.1415926;
+
+    var diffuse = radiance * albedo * max(dot(N, lightDir), 0.0) / 3.1415926; // no subsurfaace scattering
+
+    var irraidance1 = textureSample(blurredIrradianceMap1, textureSampler, uv).rgb;
+    var irraidance2 = textureSample(blurredIrradianceMap2, textureSampler, uv).rgb;
+    var irraidance3 = textureSample(blurredIrradianceMap3, textureSampler, uv).rgb;
+    var irraidance4 = textureSample(blurredIrradianceMap4, textureSampler, uv).rgb;
+    var irraidance5 = textureSample(blurredIrradianceMap5, textureSampler, uv).rgb;
+    var irraidance6 = textureSample(blurredIrradianceMap6, textureSampler, uv).rgb;
+    irraidance1 = mon2lin(irraidance1);
+    irraidance2 = mon2lin(irraidance2);
+    irraidance3 = mon2lin(irraidance3);
+    irraidance4 = mon2lin(irraidance4);
+    irraidance5 = mon2lin(irraidance5);
+    irraidance6 = mon2lin(irraidance6);
+
+    diffuse = vec3<f32>(0.0, 0.0, 0.0);
+    diffuse += irraidance1 * vec3<f32>(kernel1.y, kernel1.z, kernel1.w);
+    diffuse += irraidance2 * vec3<f32>(kernel2.y, kernel2.z, kernel2.w);
+    diffuse += irraidance3 * vec3<f32>(kernel3.y, kernel3.z, kernel3.w);
+    diffuse += irraidance4 * vec3<f32>(kernel4.y, kernel4.z, kernel4.w);
+    diffuse += irraidance5 * vec3<f32>(kernel5.y, kernel5.z, kernel5.w);
+    diffuse += irraidance6 * vec3<f32>(kernel6.y, kernel6.z, kernel6.w);
+
+    diffuse /= 3.1415926; // lambertain
 
     var color = specular + diffuse;
     color *= lightShadow;

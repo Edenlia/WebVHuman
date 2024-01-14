@@ -12,6 +12,12 @@ import vxGaussianCode from './shader/gaussianVertex.wgsl?raw';
 // @ts-ignore
 import fxGaussianCode1 from './shader/gaussianFragment1.wgsl?raw';
 // @ts-ignore
+import fxGaussianCode2 from './shader/gaussianFragment2.wgsl?raw';
+// @ts-ignore
+import fxGaussianCode3 from './shader/gaussianFragment3.wgsl?raw';
+// @ts-ignore
+import fxGaussianCode4 from './shader/gaussianFragment4.wgsl?raw';
+// @ts-ignore
 import vxCode from './shader/vertex.wgsl?raw';
 // @ts-ignore
 import fxCode from './shader/fragment.wgsl?raw';
@@ -57,7 +63,7 @@ let main = async () => {
     camera.coordinateSystem = WebGPUCoordinateSystem;
     camera.updateProjectionMatrix();
 
-    camera.position.set( 0, 0, 30 );
+    camera.position.set( 0, 0, 20 );
     camera.lookAt( 0, 0, 0 );
 
     camera.updateMatrixWorld( true);
@@ -85,6 +91,12 @@ let main = async () => {
     app.InitIrradiancePipeline( vxIrradianceCode, fxIrradianceCode );
 
     app.InitGaussianPipeline(1, vxGaussianCode, fxGaussianCode1);
+
+    app.InitGaussianPipeline(2, vxGaussianCode, fxGaussianCode2);
+
+    app.InitGaussianPipeline(3, vxGaussianCode, fxGaussianCode3);
+
+    app.InitGaussianPipeline(4, vxGaussianCode, fxGaussianCode4);
 
     app.InitRenderPipeline( vxCode, fxCode );
 
@@ -120,7 +132,7 @@ let main = async () => {
 
         // app.RotateCamera(elapsed);
 
-        app.RotateLight(elapsed);
+         app.RotateLight(elapsed);
 
         // app.UpdateModelUniformBuffer(modelUniformBufferView);
 
