@@ -85,15 +85,18 @@ let main = async () => {
     let lastTime = 0, rotationSpeed = 0.001;
     let modelMMatrix = new Matrix4()
 
-    for (let i = 0; i < modelVertices.length; i++) {
+    // for (let i = 0; i < modelVertices.length; i++) {
+    //
+    //     // console.log("modelVertices ", i, ": ", modelVertices[i]);
+    //     // console.log("modelIndices ", i, ": ", modelIndices[i]);
+    //
+    //     let modelUniformBufferView = new Float32Array( modelMMatrix.toArray() );
+    //     app.UploadModel( modelVertices[i], modelIndices[i], modelNormals[i], modelUvs[i], modelUniformBufferView );
+    // }
 
-        // console.log("modelVertices ", i, ": ", modelVertices[i]);
-        // console.log("modelIndices ", i, ": ", modelIndices[i]);
-
-        let modelUniformBufferView = new Float32Array( modelMMatrix.toArray() );
-
-        app.UploadModel( modelVertices[i], modelIndices[i], modelNormals[i], modelUvs[i], modelUniformBufferView );
-    }
+    // TODO: support multiple models
+    let modelUniformBufferView = new Float32Array( modelMMatrix.toArray() );
+    app.UploadModel( modelVertices[0], modelIndices[0], modelNormals[0], modelUvs[0], modelUniformBufferView );
 
     app.RunRenderLoop(() => {
 
@@ -113,9 +116,7 @@ let main = async () => {
 
         app.RotateLight(elapsed);
 
-        // for (let i = 0; i < modelVertices.length; i++) {
-        //     app.UpdateModelUniformBuffer(i,  modelUniformBufferView);
-        // }
+        // app.UpdateModelUniformBuffer(modelUniformBufferView);
 
         app.Draw(backgroundColor);
     })

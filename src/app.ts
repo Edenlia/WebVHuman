@@ -62,7 +62,7 @@ export class App {
 
     public irradianceTexture: GPUTexture;
 
-    private models: Model[] = []; // TODO: need to change to 1 model
+    private model: Model;
 
     private camera: Camera;
 
@@ -446,7 +446,7 @@ export class App {
 
             model.InitGPUBuffer(this.device, this);
 
-            this.models.push(model);
+            this.model = model;
     }
 
     public Draw(clearColor: GPUColorDict) {
@@ -500,61 +500,50 @@ export class App {
         const commandEncoder = this.device.createCommandEncoder();
 
         const shadowPass = commandEncoder.beginRenderPass(shadowPassDescriptor);
+
         shadowPass.setPipeline(this.shadowPipeline);
-
-        for (let i = 0; i < this.models.length; i++) {
-
-            shadowPass.setVertexBuffer(0, this.models[i].vertexBuffer);
-            shadowPass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
-            shadowPass.setBindGroup(0, this.models[i].uniformBindGroup);
-            shadowPass.setBindGroup(1, this.globalUniformGroup);
-
-            shadowPass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
-        }
+        shadowPass.setVertexBuffer(0, this.model.vertexBuffer);
+        shadowPass.setIndexBuffer(this.model.indexBuffer, "uint32");
+        shadowPass.setBindGroup(0, this.model.uniformBindGroup);
+        shadowPass.setBindGroup(1, this.globalUniformGroup);
+        shadowPass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
 
         shadowPass.end();
 
+
         const irradiancePass = commandEncoder.beginRenderPass(irradiancePassDescriptor);
+
         irradiancePass.setPipeline(this.irradiancePipeline);
-
-        for (let i = 0; i < this.models.length; i++) {
-
-            irradiancePass.setVertexBuffer(0, this.models[i].vertexBuffer);
-            irradiancePass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
-            irradiancePass.setBindGroup(0, this.models[i].uniformBindGroup);
-            irradiancePass.setBindGroup(1, this.globalUniformGroup);
-            irradiancePass.setBindGroup(2, this.shadowGroup);
-
-            irradiancePass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
-
-        }
+        irradiancePass.setVertexBuffer(0, this.model.vertexBuffer);
+        irradiancePass.setIndexBuffer(this.model.indexBuffer, "uint32");
+        irradiancePass.setBindGroup(0, this.model.uniformBindGroup);
+        irradiancePass.setBindGroup(1, this.globalUniformGroup);
+        irradiancePass.setBindGroup(2, this.shadowGroup);
+        irradiancePass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
 
         irradiancePass.end();
 
+
         const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
+
         renderPass.setPipeline(this.renderPipeline);
         renderPass.setViewport(0, 0, this.devicePixelWidth, this.devicePixelHeight, 0, 1);
-
-        for (let i = 0; i < this.models.length; i++) {
-
-            renderPass.setVertexBuffer(0, this.models[i].vertexBuffer);
-            renderPass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
-            renderPass.setBindGroup(0, this.models[i].uniformBindGroup);
-            renderPass.setBindGroup(1, this.globalUniformGroup);
-            renderPass.setBindGroup(2, this.shadowGroup);
-
-            renderPass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
-
-        }
+        renderPass.setVertexBuffer(0, this.model.vertexBuffer);
+        renderPass.setIndexBuffer(this.model.indexBuffer, "uint32");
+        renderPass.setBindGroup(0, this.model.uniformBindGroup);
+        renderPass.setBindGroup(1, this.globalUniformGroup);
+        renderPass.setBindGroup(2, this.shadowGroup);
+        renderPass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
 
         renderPass.end();
+
 
         this.device.queue.submit([commandEncoder.finish()]);
     }
 
-    public UpdateModelUniformBuffer (modelIndex: number, mxArray: Float32Array) {
+    public UpdateModelUniformBuffer (mxArray: Float32Array) {
 
-          this.models[modelIndex].UpdateUniformBuffer(this.device, mxArray);
+          this.model.UpdateUniformBuffer(this.device, mxArray);
     }
 
     public RunRenderLoop( fn: Function ) {
