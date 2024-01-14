@@ -130,9 +130,9 @@ let main = async () => {
 
         let modelUniformBufferView = new Float32Array( modelMMatrix.toArray() );
 
-        // app.RotateCamera(elapsed);
+        app.RotateCamera(elapsed);
 
-         app.RotateLight(elapsed);
+        // app.RotateLight(elapsed);
 
         // app.UpdateModelUniformBuffer(modelUniformBufferView);
 

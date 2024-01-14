@@ -136,11 +136,9 @@ export class App {
 
         this.devicePixelHeight = Math.floor(height * window.devicePixelRatio);
 
-        // TODO: For test now, set to intermediaTextureSize for output to screen
-
-        this.devicePixelWidth = this.intermediaTextureSize;
-
-        this.devicePixelHeight = this.intermediaTextureSize;
+        // this.devicePixelWidth = this.intermediaTextureSize;
+        //
+        // this.devicePixelHeight = this.intermediaTextureSize;
 
         this.canvas = document.createElement('canvas');
 
@@ -199,7 +197,7 @@ export class App {
     }
 
     public RotateCamera (elapsed: number) {
-        let distanceToCenter = 30;
+        let distanceToCenter = this.camera.position.distanceTo(new Vector3(0, 0, 0));
         this.cameraTimer += elapsed;
         let position = new Vector3(
             Math.sin(this.cameraTimer * this.rotationSpeed) * distanceToCenter,
@@ -211,7 +209,7 @@ export class App {
     }
 
     public RotateLight (elapsed: number) {
-        let distanceToCenter = 30;
+        let distanceToCenter = this.mainLight.position.distanceTo(new Vector3(0, 0, 0));
         this.lightTimer += elapsed;
         let position = new Vector3(
             Math.sin(this.lightTimer * this.rotationSpeed) * distanceToCenter,
