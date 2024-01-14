@@ -24,9 +24,19 @@ export class App {
 
     public shadowGroupLayout: GPUBindGroupLayout;
 
+    public gaussianInputGroupLayout: GPUBindGroupLayout;
+
     public globalUniformGroup: GPUBindGroup;
 
     public shadowGroup: GPUBindGroup;
+
+    public gaussianInputGroup1: GPUBindGroup; // blur 3 textures each time
+
+    public gaussianInputGroup2: GPUBindGroup;
+
+    public gaussianInputGroup3: GPUBindGroup;
+
+    public gaussianInputGroup4: GPUBindGroup;
 
     public lightBuffer: GPUBuffer;
 
@@ -36,9 +46,19 @@ export class App {
 
     public depthSampler: GPUSampler;
 
+    public gaussianSampler: GPUSampler;
+
     public shadowPipeline: GPURenderPipeline;
 
     public irradiancePipeline: GPURenderPipeline;
+
+    public gaussianPipeline1: GPURenderPipeline;
+
+    public gaussianPipeline2: GPURenderPipeline;
+
+    public gaussianPipeline3: GPURenderPipeline;
+
+    public gaussianPipeline4: GPURenderPipeline;
 
     public renderPipeline: GPURenderPipeline;
 
@@ -61,6 +81,30 @@ export class App {
     public scatteringTexture: GPUTexture;
 
     public irradianceTexture: GPUTexture;
+
+    public intermediateTexture1: GPUTexture;
+
+    public intermediateTexture2: GPUTexture;
+
+    public intermediateTexture3: GPUTexture;
+
+    public intermediateTexture4: GPUTexture;
+
+    public intermediateTexture5: GPUTexture;
+
+    public intermediateTexture6: GPUTexture;
+
+    public blurredTexture1: GPUTexture;
+
+    public blurredTexture2: GPUTexture;
+
+    public blurredTexture3: GPUTexture;
+
+    public blurredTexture4: GPUTexture;
+
+    public blurredTexture5: GPUTexture;
+
+    public blurredTexture6: GPUTexture;
 
     private model: Model;
 
@@ -229,7 +273,9 @@ export class App {
     }
 
     public InitBuffers () {
-        // 1. Init group layout
+        //////////////////////////
+        // 1. Init group layout //
+        //////////////////////////
         // model's model matrix and texture
         this.modelUniformGroupLayout = createBindGroupLayout(
             [0, 1, 2, 3],
@@ -246,7 +292,7 @@ export class App {
                 {sampleType: 'float'},
                 {sampleType: 'float'},
             ],
-            'app',
+            'modelUniform',
             this.device);
 
         // Lights, camera view matrix, projection matrix
@@ -267,7 +313,7 @@ export class App {
                 {type: 'uniform' },
                 {type: 'uniform' },
             ],
-            'app',
+            'globalUniform',
             this.device);
 
         // shadow map and sampler
@@ -285,10 +331,36 @@ export class App {
                 {sampleType: 'depth'},
                 {type: 'comparison'},
             ],
-            'app',
+            'shadow',
             this.device);
 
-        // 2. Init global groups
+        // gaussian blur input texture and sampler
+        this.gaussianInputGroupLayout = createBindGroupLayout(
+            [0, 1, 2, 3],
+            [
+                GPUShaderStage.FRAGMENT,
+                GPUShaderStage.FRAGMENT,
+                GPUShaderStage.FRAGMENT,
+                GPUShaderStage.FRAGMENT,
+            ],
+            [
+                'sampler',
+                'texture',
+                'texture',
+                'texture',
+            ],
+            [
+                {type: 'filtering'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+                {sampleType: 'float'},
+            ],
+            'gaussianInput',
+            this.device);
+
+        ///////////////////////////
+        // 2. Init global groups //
+        ///////////////////////////
 
         // light and camera group
         let pMatrix = this.camera.projectionMatrix;
@@ -350,13 +422,135 @@ export class App {
             this.device
         )
 
+        // gaussian blur group
+        // color attachment of irradiance pass, also be the input texture in gaussian blur pass
+        this.irradianceTexture = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+
+        this.gaussianSampler = this.device.createSampler({
+            magFilter: 'linear',
+            minFilter: 'linear',
+        });
+
+        this.intermediateTexture1 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.intermediateTexture2 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.intermediateTexture3 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.intermediateTexture4 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.intermediateTexture5 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.intermediateTexture6 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+
+        this.blurredTexture1 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.blurredTexture2 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.blurredTexture3 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.blurredTexture4 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.blurredTexture5 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+        this.blurredTexture6 = this.device.createTexture({
+            size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+            format: this.format,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        })
+
+        this.gaussianInputGroup1 = createBindGroup(
+            [
+                this.gaussianSampler,
+                this.irradianceTexture.createView(),
+                this.irradianceTexture.createView(),
+                this.irradianceTexture.createView(),
+            ],
+            this.gaussianInputGroupLayout,
+            'gaussianInput1',
+            this.device
+        )
+
+        this.gaussianInputGroup2 = createBindGroup(
+            [
+                this.gaussianSampler,
+                this.intermediateTexture1.createView(),
+                this.intermediateTexture2.createView(),
+                this.intermediateTexture3.createView(),
+            ],
+            this.gaussianInputGroupLayout,
+            'gaussianInput2',
+            this.device
+        )
+
+        this.gaussianInputGroup3 = createBindGroup(
+            [
+                this.gaussianSampler,
+                this.irradianceTexture.createView(),
+                this.irradianceTexture.createView(),
+                this.irradianceTexture.createView(),
+            ],
+            this.gaussianInputGroupLayout,
+            'gaussianInput3',
+            this.device
+        )
+
+        this.gaussianInputGroup4 = createBindGroup(
+            [
+                this.gaussianSampler,
+                this.intermediateTexture4.createView(),
+                this.intermediateTexture5.createView(),
+                this.intermediateTexture6.createView(),
+            ],
+            this.gaussianInputGroupLayout,
+            'gaussianInput4',
+            this.device
+        )
     }
 
     public InitShadowPipeline (vxCode: string) {
 
         this.shadowPipeline = create3DRenderPipeline(
             this.device,
-            'app',
+            'shadowPipeline',
             [
                 this.modelUniformGroupLayout,
                 this.globalUniformGroupLayout,
@@ -378,7 +572,7 @@ export class App {
 
             this.irradiancePipeline = create3DRenderPipeline(
                 this.device,
-                'app',
+                'irradiancePipeline',
                 [
                     this.modelUniformGroupLayout,
                     this.globalUniformGroupLayout,
@@ -395,13 +589,6 @@ export class App {
                 'none',
             );
 
-            // color attachment of irradiance pass, also be the input texture in gaussian blur pass
-            this.irradianceTexture = this.device.createTexture({
-                size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
-                format: this.format,
-                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
-            })
-
             this.irradianceDepthTexture = this.device.createTexture({
                 size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
                 format: 'depth24plus', // depth format
@@ -409,11 +596,98 @@ export class App {
             })
     }
 
+    public InitGaussianPipeline (num: number, vxCode: string, fxCode: string) {
+        if (num === 1) {
+            console.log("create gaussian pipeline 1");
+            this.gaussianPipeline1 = create3DRenderPipeline(
+                this.device,
+                'gaussianPipeline1',
+                [
+                    this.modelUniformGroupLayout,
+                    this.globalUniformGroupLayout,
+                    this.gaussianInputGroupLayout,
+                ],
+                vxCode,
+                // position, normal, uv
+                ['float32x3', 'float32x3', 'float32x2'],
+                fxCode,
+                3,
+                [this.format, this.format, this.format],
+                true,
+                'triangle-list',
+                'none',
+            );
+        }
+        else if (num === 2) {
+            console.log("create gaussian pipeline 2");
+            this.gaussianPipeline2 = create3DRenderPipeline(
+                this.device,
+                'gaussianPipeline2',
+                [
+                    this.modelUniformGroupLayout,
+                    this.globalUniformGroupLayout,
+                    this.gaussianInputGroupLayout,
+                ],
+                vxCode,
+                // position, normal, uv
+                ['float32x3', 'float32x3', 'float32x2'],
+                fxCode,
+                3,
+                [this.format, this.format, this.format],
+                true,
+                'triangle-list',
+                'none',
+            );
+        }
+        else if (num === 3) {
+            console.log("create gaussian pipeline 3");
+            this.gaussianPipeline3 = create3DRenderPipeline(
+                this.device,
+                'gaussianPipeline3',
+                [
+                    this.modelUniformGroupLayout,
+                    this.globalUniformGroupLayout,
+                    this.gaussianInputGroupLayout,
+                ],
+                vxCode,
+                // position, normal, uv
+                ['float32x3', 'float32x3', 'float32x2'],
+                fxCode,
+                3,
+                [this.format, this.format, this.format],
+                true,
+                'triangle-list',
+                'none',
+            );
+        }
+        else if (num === 4) {
+            console.log("create gaussian pipeline 4");
+            this.gaussianPipeline4 = create3DRenderPipeline(
+                this.device,
+                'gaussianPipeline4',
+                [
+                    this.modelUniformGroupLayout,
+                    this.globalUniformGroupLayout,
+                    this.gaussianInputGroupLayout,
+                ],
+                vxCode,
+                // position, normal, uv
+                ['float32x3', 'float32x3', 'float32x2'],
+                fxCode,
+                3,
+                [this.format, this.format, this.format],
+                true,
+                'triangle-list',
+                'none',
+            );
+        }
+    }
+
     public InitRenderPipeline (vxCode: string, fxCode: string) {
 
         this.renderPipeline = create3DRenderPipeline(
             this.device,
-            'app',
+            'renderPipeline',
             [
                 this.modelUniformGroupLayout,
                 this.globalUniformGroupLayout,
@@ -450,6 +724,8 @@ export class App {
     }
 
     public Draw(clearColor: GPUColorDict) {
+        const commandEncoder = this.device.createCommandEncoder();
+
 
         let shadowPassDescriptor: GPURenderPassDescriptor = {
             colorAttachments: [],
@@ -462,6 +738,17 @@ export class App {
                 depthStoreOp: 'store',
             },
         }
+        const shadowPass = commandEncoder.beginRenderPass(shadowPassDescriptor);
+
+        shadowPass.setPipeline(this.shadowPipeline);
+        shadowPass.setVertexBuffer(0, this.model.vertexBuffer);
+        shadowPass.setIndexBuffer(this.model.indexBuffer, "uint32");
+        shadowPass.setBindGroup(0, this.model.uniformBindGroup);
+        shadowPass.setBindGroup(1, this.globalUniformGroup);
+        shadowPass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
+
+        shadowPass.end();
+
 
         let irradiancePassDescriptor: GPURenderPassDescriptor = {
             colorAttachments: [
@@ -479,6 +766,60 @@ export class App {
                 depthStoreOp: 'store',
             }
         }
+        const irradiancePass = commandEncoder.beginRenderPass(irradiancePassDescriptor);
+
+        irradiancePass.setPipeline(this.irradiancePipeline);
+        irradiancePass.setVertexBuffer(0, this.model.vertexBuffer);
+        irradiancePass.setIndexBuffer(this.model.indexBuffer, "uint32");
+        irradiancePass.setBindGroup(0, this.model.uniformBindGroup);
+        irradiancePass.setBindGroup(1, this.globalUniformGroup);
+        irradiancePass.setBindGroup(2, this.shadowGroup);
+        irradiancePass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
+
+        irradiancePass.end();
+
+
+        let gaussianPassDescriptor1: GPURenderPassDescriptor = {
+
+            colorAttachments: [
+                {
+                    view: this.intermediateTexture1.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.intermediateTexture2.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                },
+                {
+                    view: this.intermediateTexture3.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                }
+            ],
+            depthStencilAttachment: {
+                view: this.irradianceDepthTexture.createView(),
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            }
+        }
+        const gaussianPass1 = commandEncoder.beginRenderPass(gaussianPassDescriptor1);
+
+        gaussianPass1.setPipeline(this.gaussianPipeline1);
+        gaussianPass1.setVertexBuffer(0, this.model.vertexBuffer);
+        gaussianPass1.setIndexBuffer(this.model.indexBuffer, "uint32");
+        gaussianPass1.setBindGroup(0, this.model.uniformBindGroup);
+        gaussianPass1.setBindGroup(1, this.globalUniformGroup);
+        gaussianPass1.setBindGroup(2, this.gaussianInputGroup1);
+        gaussianPass1.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
+
+        gaussianPass1.end();
+
 
         let renderPassDescriptor: GPURenderPassDescriptor = {
 
@@ -496,34 +837,6 @@ export class App {
             },
 
         }
-
-        const commandEncoder = this.device.createCommandEncoder();
-
-        const shadowPass = commandEncoder.beginRenderPass(shadowPassDescriptor);
-
-        shadowPass.setPipeline(this.shadowPipeline);
-        shadowPass.setVertexBuffer(0, this.model.vertexBuffer);
-        shadowPass.setIndexBuffer(this.model.indexBuffer, "uint32");
-        shadowPass.setBindGroup(0, this.model.uniformBindGroup);
-        shadowPass.setBindGroup(1, this.globalUniformGroup);
-        shadowPass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
-
-        shadowPass.end();
-
-
-        const irradiancePass = commandEncoder.beginRenderPass(irradiancePassDescriptor);
-
-        irradiancePass.setPipeline(this.irradiancePipeline);
-        irradiancePass.setVertexBuffer(0, this.model.vertexBuffer);
-        irradiancePass.setIndexBuffer(this.model.indexBuffer, "uint32");
-        irradiancePass.setBindGroup(0, this.model.uniformBindGroup);
-        irradiancePass.setBindGroup(1, this.globalUniformGroup);
-        irradiancePass.setBindGroup(2, this.shadowGroup);
-        irradiancePass.drawIndexed(this.model.indexCount, 1, 0, 0, 0);
-
-        irradiancePass.end();
-
-
         const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
 
         renderPass.setPipeline(this.renderPipeline);

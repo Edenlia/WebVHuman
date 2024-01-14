@@ -8,6 +8,10 @@ import vxIrradianceCode from './shader/irradianceVertex.wgsl?raw';
 // @ts-ignore
 import fxIrradianceCode from './shader/irradianceFragment.wgsl?raw';
 // @ts-ignore
+import vxGaussianCode from './shader/gaussianVertex.wgsl?raw';
+// @ts-ignore
+import fxGaussianCode1 from './shader/gaussianFragment1.wgsl?raw';
+// @ts-ignore
 import vxCode from './shader/vertex.wgsl?raw';
 // @ts-ignore
 import fxCode from './shader/fragment.wgsl?raw';
@@ -79,6 +83,8 @@ let main = async () => {
     app.InitShadowPipeline( vxShadowCode);
 
     app.InitIrradiancePipeline( vxIrradianceCode, fxIrradianceCode );
+
+    app.InitGaussianPipeline(1, vxGaussianCode, fxGaussianCode1);
 
     app.InitRenderPipeline( vxCode, fxCode );
 
