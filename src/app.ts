@@ -70,6 +70,8 @@ export class App {
 
     private shadowMapSize: number = 1024;
 
+    private intermediaTextureSize: number = 1024; // depend on the albedo texture size
+
     public CreateCanvas (rootElement: HTMLElement) {
 
         let width = rootElement.clientWidth;
@@ -79,6 +81,12 @@ export class App {
         this.devicePixelWidth = Math.floor(width * window.devicePixelRatio);
 
         this.devicePixelHeight = Math.floor(height * window.devicePixelRatio);
+
+        // TODO: For test now, set to intermediaTextureSize for output to screen
+
+        this.devicePixelWidth = this.intermediaTextureSize;
+
+        this.devicePixelHeight = this.intermediaTextureSize;
 
         this.canvas = document.createElement('canvas');
 
@@ -189,7 +197,7 @@ export class App {
 
     public async LoadTextures () {
         // albedo
-        let response = await fetch('./models/Emily/Emily_diffuse_8k.png');
+        let response = await fetch('./models/Emily/Emily_diffuse_1k.png');
         let imageBitmap = await createImageBitmap(await response.blob());
         this.albedoTexture = createTextureFromImage(this.device, imageBitmap, true);
 
