@@ -25,6 +25,12 @@ export class Model {
 
     public uniformBindGroup: GPUBindGroup;
 
+    public albedoTexture: GPUTexture;
+
+    public specularTexture: GPUTexture;
+
+    public sampler: GPUSampler;
+
     public vertexCount: number;
 
     public indexCount: number;
@@ -52,6 +58,12 @@ export class Model {
             this.indexCount = idxArray.length;
     }
 
+    public InitTextures (albedo: GPUTexture, specular: GPUTexture, sampler: GPUSampler) {
+        this.albedoTexture = albedo;
+        this.specularTexture = specular;
+        this.sampler = sampler;
+    }
+
     public InitGPUBuffer (device: GPUDevice, app: App) {
 
         let vxArray = this.GetVertexInput();
@@ -63,7 +75,12 @@ export class Model {
         this.uniformBuffer = createGPUBuffer(device, this.matrixArray, GPUBufferUsage.UNIFORM);
 
         this.uniformBindGroup = createBindGroup(
-            [{buffer: this.uniformBuffer}],
+            [
+                {buffer: this.uniformBuffer},
+                this.sampler,
+                this.albedoTexture.createView(),
+                this.specularTexture.createView(),
+            ],
             app.modelUniformGroupLayout,
             "model",
             device

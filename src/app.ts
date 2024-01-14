@@ -20,13 +20,9 @@ export class App {
 
     public modelUniformGroupLayout: GPUBindGroupLayout;
 
-    public surfaceGroupLayout: GPUBindGroupLayout;
-
     public globalUniformGroupLayout: GPUBindGroupLayout;
 
     public shadowGroupLayout: GPUBindGroupLayout;
-
-    public surfaceGroup: GPUBindGroup;
 
     public globalUniformGroup: GPUBindGroup;
 
@@ -220,25 +216,21 @@ export class App {
 
     public InitBuffers () {
         // 1. Init group layout
-        // model's model matrix
+        // model's model matrix and texture
         this.modelUniformGroupLayout = createBindGroupLayout(
-            [0],
-            [GPUShaderStage.VERTEX],
-            ['buffer'],
-            [{type: 'uniform' }],
-            'app',
-            this.device);
-
-        // textures
-        this.surfaceGroupLayout = createBindGroupLayout(
             [0, 1, 2, 3],
-            [GPUShaderStage.FRAGMENT, GPUShaderStage.FRAGMENT, GPUShaderStage.FRAGMENT, GPUShaderStage.FRAGMENT],
-            ['sampler', 'texture', 'texture', 'texture'],
             [
+                GPUShaderStage.VERTEX,
+                GPUShaderStage.FRAGMENT,
+                GPUShaderStage.FRAGMENT,
+                GPUShaderStage.FRAGMENT,
+            ],
+            ['buffer', 'sampler', 'texture', 'texture'],
+            [
+                {type: 'uniform' },
                 {type: 'filtering'},
                 {sampleType: 'float'},
                 {sampleType: 'float'},
-                {sampleType: 'float'}
             ],
             'app',
             this.device);
@@ -283,18 +275,6 @@ export class App {
             this.device);
 
         // 2. Init global groups
-        // surface group
-        this.surfaceGroup = createBindGroup(
-            [
-                this.textureSampler,
-                this.albedoTexture.createView(),
-                this.specularTexture.createView(),
-                this.scatteringTexture.createView()
-            ],
-            this.surfaceGroupLayout,
-            'app',
-            this.device
-        )
 
         // light and camera group
         let pMatrix = this.camera.projectionMatrix;
@@ -386,7 +366,6 @@ export class App {
             'app',
             [
                 this.modelUniformGroupLayout,
-                this.surfaceGroupLayout,
                 this.globalUniformGroupLayout,
                 this.shadowGroupLayout,
             ],
@@ -411,6 +390,8 @@ export class App {
             let model = new Model();
 
             model.InitModel(ModelVBType.PNU, mxArray, vxArray, idxArray, nmArray, uvArray);
+
+            model.InitTextures(this.albedoTexture, this.specularTexture, this.textureSampler);
 
             model.InitGPUBuffer(this.device, this);
 
@@ -481,9 +462,8 @@ export class App {
             renderPass.setVertexBuffer(0, this.models[i].vertexBuffer);
             renderPass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
             renderPass.setBindGroup(0, this.models[i].uniformBindGroup);
-            renderPass.setBindGroup(1, this.surfaceGroup);
-            renderPass.setBindGroup(2, this.globalUniformGroup);
-            renderPass.setBindGroup(3, this.shadowGroup);
+            renderPass.setBindGroup(1, this.globalUniformGroup);
+            renderPass.setBindGroup(2, this.shadowGroup);
 
             renderPass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
 

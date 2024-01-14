@@ -10,19 +10,18 @@ struct MainLightUniforms {
     @size(64) uLightVPMatrix: mat4x4<f32>,
 };
 
-@group(1) @binding(0) var textureSampler: sampler;
-@group(1) @binding(1) var albedoTexture: texture_2d<f32>;
-@group(1) @binding(2) var specularTexture: texture_2d<f32>;
-@group(1) @binding(3) var scatteringTexture: texture_2d<f32>;
+@group(0) @binding(1) var textureSampler: sampler;
+@group(0) @binding(2) var albedoTexture: texture_2d<f32>;
+@group(0) @binding(3) var specularTexture: texture_2d<f32>;
 
-@group(2) @binding(0)
+@group(1) @binding(0)
 var<uniform> cameraUniforms: CameraUniforms;
 
-@group(2) @binding(1)
+@group(1) @binding(1)
 var<uniform> mainLightUniforms: MainLightUniforms;
 
-@group(3) @binding(0) var shadowMap: texture_depth_2d;
-@group(3) @binding(1) var shadowSampler: sampler_comparison;
+@group(2) @binding(0) var shadowMap: texture_depth_2d;
+@group(2) @binding(1) var shadowSampler: sampler_comparison;
 
 var<private> shadowDepthTextureSize: f32 = 1024.0;
 
