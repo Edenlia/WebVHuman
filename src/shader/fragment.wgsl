@@ -153,7 +153,7 @@ fn KSSkinSpecular(
     var h = L + V; // Unnormalized half-way vector
     var H = normalize(h);
     var NdotH = saturate(dot(N, H));
-    var PH = pow(Beckmann(NdotH, m), 1.0); // can change power for visual effect, Nvidia uses 10, but not good for me
+    var PH = pow(Beckmann(NdotH, m), 0.5); // can change power for visual effect, Nvidia uses 10, but not good for me
     var F = FresnelReflectance(V, H, 0.028);
     var frSpec = max(PH * F / (dot(h, h)), 0.0);
     result = frSpec * NdotL * rho_s; // BRDF * dot(N, L) * rho_s
@@ -208,8 +208,8 @@ fn fragmentMain(
     // rho_s *= 0.4;
     // var rho_s = 0.9;
     var m = 0.3;
-    var specular = radiance/* * lightShadow*/ * KSSkinSpecular(N, viewDir, lightDir, m, rho_s);
-    var diffuse = radiance * albedo * max(dot(N, lightDir), 0.0);
+    var specular = radiance * KSSkinSpecular(N, viewDir, lightDir, m, rho_s);
+    var diffuse = radiance * albedo * max(dot(N, lightDir), 0.0) / 3.1415926;
 
     var color = specular + diffuse;
     color *= lightShadow;

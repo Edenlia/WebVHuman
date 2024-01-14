@@ -36,15 +36,19 @@ export class App {
 
     public depthSampler: GPUSampler;
 
-    public renderPipeline: GPURenderPipeline;
-
     public shadowPipeline: GPURenderPipeline;
+
+    public irradiancePipeline: GPURenderPipeline;
+
+    public renderPipeline: GPURenderPipeline;
 
     public devicePixelWidth: number;
 
     public devicePixelHeight: number;
 
     public shadowDepthTexture: GPUTexture;
+
+    public irradianceDepthTexture: GPUTexture;
 
     public depthTexture: GPUTexture;
 
@@ -55,6 +59,8 @@ export class App {
     public displacementTexture: GPUTexture;
 
     public scatteringTexture: GPUTexture;
+
+    public irradianceTexture: GPUTexture;
 
     private models: Model[] = []; // TODO: need to change to 1 model
 
@@ -212,9 +218,9 @@ export class App {
         // this.displacementTexture = createTextureFromImage(this.device, imageBitmap, true);
 
         // scattering
-        response = await fetch('./models/Emily/Emily_scattering_8k.png');
-        imageBitmap = await createImageBitmap(await response.blob());
-        this.scatteringTexture = createTextureFromImage(this.device, imageBitmap, true);
+        // response = await fetch('./models/Emily/Emily_scattering_8k.png');
+        // imageBitmap = await createImageBitmap(await response.blob());
+        // this.scatteringTexture = createTextureFromImage(this.device, imageBitmap, true);
 
         this.textureSampler = this.device.createSampler({
             magFilter: 'linear',
@@ -368,6 +374,41 @@ export class App {
         );
     }
 
+    public InitIrradiancePipeline (vxCode: string, fxCode: string) {
+
+            this.irradiancePipeline = create3DRenderPipeline(
+                this.device,
+                'app',
+                [
+                    this.modelUniformGroupLayout,
+                    this.globalUniformGroupLayout,
+                    this.shadowGroupLayout,
+                ],
+                vxCode,
+                // position, normal, uv
+                ['float32x3', 'float32x3', 'float32x2'],
+                fxCode,
+                1,
+                [this.format],
+                true,
+                'triangle-list',
+                'none',
+            );
+
+            // color attachment of irradiance pass, also be the input texture in gaussian blur pass
+            this.irradianceTexture = this.device.createTexture({
+                size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+                format: this.format,
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+            })
+
+            this.irradianceDepthTexture = this.device.createTexture({
+                size: { width: this.intermediaTextureSize, height: this.intermediaTextureSize, depthOrArrayLayers: 1 },
+                format: 'depth24plus', // depth format
+                usage: GPUTextureUsage.RENDER_ATTACHMENT
+            })
+    }
+
     public InitRenderPipeline (vxCode: string, fxCode: string) {
 
         this.renderPipeline = create3DRenderPipeline(
@@ -422,29 +463,39 @@ export class App {
             },
         }
 
+        let irradiancePassDescriptor: GPURenderPassDescriptor = {
+            colorAttachments: [
+                {
+                    view: this.irradianceTexture.createView(),
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                    clearValue: clearColor
+                }
+            ],
+            depthStencilAttachment: {
+                view: this.irradianceDepthTexture.createView(),
+                depthClearValue: 1.0,
+                depthLoadOp: 'clear',
+                depthStoreOp: 'store',
+            }
+        }
+
         let renderPassDescriptor: GPURenderPassDescriptor = {
 
             colorAttachments: [{
-
                 view: this.context.getCurrentTexture().createView(),
-
                 loadOp: 'clear',
-
                 storeOp: 'store',
-
                 clearValue: clearColor
-
             }],
             depthStencilAttachment: {
                 view: this.depthTexture.createView(),
-
                 depthClearValue: 1.0,
                 depthLoadOp: 'clear',
                 depthStoreOp: 'store',
             },
 
         }
-
 
         const commandEncoder = this.device.createCommandEncoder();
 
@@ -462,6 +513,23 @@ export class App {
         }
 
         shadowPass.end();
+
+        const irradiancePass = commandEncoder.beginRenderPass(irradiancePassDescriptor);
+        irradiancePass.setPipeline(this.irradiancePipeline);
+
+        for (let i = 0; i < this.models.length; i++) {
+
+            irradiancePass.setVertexBuffer(0, this.models[i].vertexBuffer);
+            irradiancePass.setIndexBuffer(this.models[i].indexBuffer, "uint32");
+            irradiancePass.setBindGroup(0, this.models[i].uniformBindGroup);
+            irradiancePass.setBindGroup(1, this.globalUniformGroup);
+            irradiancePass.setBindGroup(2, this.shadowGroup);
+
+            irradiancePass.drawIndexed(this.models[i].indexCount, 1, 0, 0, 0);
+
+        }
+
+        irradiancePass.end();
 
         const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
         renderPass.setPipeline(this.renderPipeline);

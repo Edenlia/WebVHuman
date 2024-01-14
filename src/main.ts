@@ -2,11 +2,16 @@ import { App } from './app';
 // Using vite import syntax
 // https://vitejs.dev/guide/assets.html#explicit-url-imports
 // @ts-ignore
+import vxShadowCode from './shader/shadowVertex.wgsl?raw';
+// @ts-ignore
+import vxIrradianceCode from './shader/irradianceVertex.wgsl?raw';
+// @ts-ignore
+import fxIrradianceCode from './shader/irradianceFragment.wgsl?raw';
+// @ts-ignore
 import vxCode from './shader/vertex.wgsl?raw';
 // @ts-ignore
 import fxCode from './shader/fragment.wgsl?raw';
-// @ts-ignore
-import vxShadowCode from './shader/shadowVertex.wgsl?raw';
+
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 
 import {PerspectiveCamera, Matrix4, DirectionalLight, OrthographicCamera, WebGPUCoordinateSystem} from 'three';
@@ -58,7 +63,7 @@ let main = async () => {
     let mainLight = new DirectionalLight();
     mainLight.position.set( 0, 0, 30 );
     mainLight.lookAt( 0, 0, 0 );
-    mainLight.intensity = 1.2;
+    mainLight.intensity = 2.2;
     mainLight.color.setRGB(1, 1, 1);
 
     let app = new App(camera, mainLight);
@@ -72,6 +77,8 @@ let main = async () => {
     app.InitBuffers();
 
     app.InitShadowPipeline( vxShadowCode);
+
+    app.InitIrradiancePipeline( vxIrradianceCode, fxIrradianceCode );
 
     app.InitRenderPipeline( vxCode, fxCode );
 
