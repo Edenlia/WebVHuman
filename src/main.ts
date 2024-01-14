@@ -23,7 +23,7 @@ let loadModel = async () => {
 
         let object = await loader.loadAsync( "./models/Emily/Emily_2_1.obj")
 
-        for (let i = 0; i < object.children.length; i++) {
+        for (let i = 0; i < 1 /*TODO*/; i++) {
 
             let child = object.children[i];
             // @ts-ignore

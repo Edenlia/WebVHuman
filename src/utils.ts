@@ -175,7 +175,8 @@ export const create3DRenderPipeline = (
   vertexShader: string,
   vBufferFormats: GPUVertexFormat[],
   fragmentShader: string,
-  presentationFormat: GPUTextureFormat,
+  targetNum: number,
+  targetFormats: GPUTextureFormat[],
   depthTest = false,
   topology: GPUPrimitiveTopology = 'triangle-list',
   cullMode: GPUCullMode = 'back',
@@ -209,11 +210,7 @@ export const create3DRenderPipeline = (
         code: fragmentShader,
       }),
       entryPoint: 'fragmentMain',
-      targets: [
-        {
-          format: presentationFormat,
-        },
-      ],
+      targets: targetNum !== 0 ? targetFormats.map(f => ({ format: f })) : [],
     };
   }
 
@@ -238,7 +235,8 @@ export const createTextureFromImage = (
     usage:
       GPUTextureUsage.TEXTURE_BINDING |
       GPUTextureUsage.COPY_DST |
-      GPUTextureUsage.RENDER_ATTACHMENT,
+      GPUTextureUsage.RENDER_ATTACHMENT |
+      GPUTextureUsage.COPY_SRC,
   });
   device.queue.copyExternalImageToTexture(
     { source: bitmap, flipY: flipY },

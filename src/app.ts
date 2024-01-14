@@ -56,7 +56,7 @@ export class App {
 
     public scatteringTexture: GPUTexture;
 
-    private models: Model[] = [];
+    private models: Model[] = []; // TODO: need to change to 1 model
 
     private camera: Camera;
 
@@ -352,6 +352,7 @@ export class App {
             ['float32x3', 'float32x3', 'float32x2'],
             null,
             null,
+            null,
             true,
             'triangle-list',
             'back',
@@ -373,7 +374,8 @@ export class App {
             // position, normal, uv
             ['float32x3', 'float32x3', 'float32x2'],
             fxCode,
-            this.format,
+            1,
+            [this.format],
             true,
             'triangle-list'
         );
